@@ -59,7 +59,7 @@ func TestSolve(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			points, err := Solve(tc.data)
+			points, err := Solve(append([]internal.Building(nil), tc.data...))
 			require.NoError(t, err, "expected Solve() to not fail")
 			assert.Equal(t, tc.expected, points, "expected output points")
 		})
