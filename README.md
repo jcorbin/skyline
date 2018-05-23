@@ -14,3 +14,8 @@ For "the skyline" however, desired outcome becomes less clear:
 - Furthermore, if you were really drawing this stuff (say targeting the GL
   api), you'd could directly triangulate the skyline (compute a triangle
   strip).
+
+# Go Setup
+
+See the [go\_setup branch](../../tree/go_setup#go-setup) for a problem harness
+done in go; the README in its branch will further point you to solutions.
