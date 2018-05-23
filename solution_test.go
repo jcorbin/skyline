@@ -22,7 +22,41 @@ func TestSolve(t *testing.T) {
 			data:     nil,
 			expected: nil,
 		},
-		// TODO actual test cases
+
+		{
+			name: "single in the middle",
+			data: []internal.Building{
+				{Sides: [2]int{2, 4}, Height: 5},
+			},
+			expected: []image.Point{
+				{X: 0, Y: 0},
+				{X: 2, Y: 0},
+				{X: 2, Y: 5},
+				{X: 4, Y: 5},
+				{X: 4, Y: 0},
+			},
+		},
+
+		{
+			name: "twin towers",
+			data: []internal.Building{
+				{Sides: [2]int{2, 4}, Height: 10},
+				{Sides: [2]int{6, 4}, Height: 10},
+			},
+			expected: []image.Point{
+				{X: 0, Y: 0},
+
+				{X: 2, Y: 0},
+				{X: 2, Y: 10},
+				{X: 4, Y: 10},
+				{X: 4, Y: 0},
+
+				{X: 6, Y: 0},
+				{X: 6, Y: 10},
+				{X: 8, Y: 10},
+				{X: 8, Y: 0},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			points, err := Solve(tc.data)
