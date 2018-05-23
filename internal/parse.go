@@ -3,6 +3,7 @@ package internal
 import (
 	"bufio"
 	"fmt"
+	"image"
 	"io"
 	"strconv"
 	"strings"
@@ -35,25 +36,63 @@ func ScanBuildings(in io.Reader) ([]Building, error) {
 
 		var b Building
 
-		x1, err := strconv.ParseInt(parts[0], 10, 64)
+		n, err := strconv.ParseInt(parts[0], 10, 64)
 		if err != nil {
 			return res, fmt.Errorf("invalid x1=%q in %q", parts[0], sc.Text())
 		}
-		b.Sides[0] = int(x1)
+		b.Sides[0] = int(n)
 
-		x2, err := strconv.ParseInt(parts[1], 10, 64)
+		n, err = strconv.ParseInt(parts[1], 10, 64)
 		if err != nil {
 			return res, fmt.Errorf("invalid x2=%q in %q", parts[1], sc.Text())
 		}
-		b.Sides[1] = int(x2)
+		b.Sides[1] = int(n)
 
-		h, err := strconv.ParseInt(parts[2], 10, 64)
+		n, err = strconv.ParseInt(parts[2], 10, 64)
 		if err != nil {
 			return res, fmt.Errorf("invalid h=%q in %q", parts[2], sc.Text())
 		}
-		b.Height = int(h)
+		b.Height = int(n)
 
 		res = append(res, b)
+	}
+
+	return res, sc.Err()
+}
+
+// ScanPoints reads csv point output; it expects a "x,y" header line, and
+// then parses integer pairs from the remaining lines. Any (maybe partial)
+// results and error encountered are returned .
+func ScanPoints(in io.Reader) ([]image.Point, error) {
+	var res []image.Point
+	sc := bufio.NewScanner(in)
+	if sc.Scan() {
+		if line := sc.Text(); line != "x,y" {
+			return res, fmt.Errorf("expected point header line, got %q", line)
+		}
+	}
+
+	for sc.Scan() {
+		parts := strings.SplitN(sc.Text(), ",", 2)
+		if len(parts) < 2 {
+			return res, fmt.Errorf("short line %q", sc.Text())
+		}
+
+		var p image.Point
+
+		n, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			return res, fmt.Errorf("invalid x=%q in %q", parts[0], sc.Text())
+		}
+		p.X = int(n)
+
+		n, err = strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return res, fmt.Errorf("invalid y=%q in %q", parts[1], sc.Text())
+		}
+		p.Y = int(n)
+
+		res = append(res, p)
 	}
 
 	return res, sc.Err()
