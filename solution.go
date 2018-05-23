@@ -50,7 +50,6 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		sort.Slice(open, func(i, j int) bool {
 			return open[i].Sides[1] < open[j].Sides[1]
 		})
-
 	}
 
 	for i := len(open); i > 0; {
@@ -60,8 +59,12 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		// heap-pop, or we need to fully sort the remainder before loop
 		c := open[i]
 
-		openHeight = maxHeight(open[:i])
 		res = append(res, image.Pt(c.Sides[1], openHeight))
+		h := maxHeight(open[:i])
+		if h != openHeight {
+			openHeight = h
+			res = append(res, image.Pt(c.Sides[1], openHeight))
+		}
 	}
 
 	return res, nil
