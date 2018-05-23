@@ -57,6 +57,31 @@ func TestSolve(t *testing.T) {
 				{X: 8, Y: 0},
 			},
 		},
+
+		{
+			name: "joined towers",
+			data: []internal.Building{
+				{Sides: [2]int{2, 6}, Height: 13},
+				{Sides: [2]int{8, 12}, Height: 13},
+				{Sides: [2]int{4, 10}, Height: 5},
+			},
+			expected: []image.Point{
+				{X: 0, Y: 0},
+
+				{X: 2, Y: 0},
+				{X: 2, Y: 13},
+				{X: 6, Y: 13},
+				{X: 6, Y: 5},
+
+				{X: 4, Y: 5},
+				{X: 12, Y: 5},
+
+				{X: 10, Y: 5},
+				{X: 10, Y: 13},
+				{X: 12, Y: 13},
+				{X: 12, Y: 0},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			points, err := Solve(append([]internal.Building(nil), tc.data...))
