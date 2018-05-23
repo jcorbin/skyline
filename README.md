@@ -17,5 +17,23 @@ For "the skyline" however, desired outcome becomes less clear:
 
 # Go Setup
 
-See the [go\_setup branch](../../tree/go_setup#go-setup) for a problem harness
-done in go; the README in its branch will further point you to solutions.
+This branch contains support and a starting point for go solutions (return to
+the [master](../../tree/master) branch).
+
+Some convenience utilities:
+- a basic problem generator in the [gen](./gen) package
+- a problem displayer in the [display](./display) package
+- such utilities can be built with a `make all`, then run from `./bin/`
+
+There's a [main.go](main harness) provided, as well as some basic [test
+cases](solution_test.go).
+
+Solution implementation can start by implementing in `solve.go` the stubbed in:
+```golang
+func Solve(data []internal.Building) ([]image.Point, error)
+```
+
+Solution may be ran over random data, for example:
+```shell
+$ ./bin/gen | go run main.go solution.go
+```
