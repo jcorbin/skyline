@@ -41,7 +41,7 @@ func TestSolve(t *testing.T) {
 			name: "twin towers",
 			data: []internal.Building{
 				{Sides: [2]int{2, 4}, Height: 10},
-				{Sides: [2]int{6, 4}, Height: 10},
+				{Sides: [2]int{6, 8}, Height: 10},
 			},
 			expected: []image.Point{
 				{X: 0, Y: 0},
