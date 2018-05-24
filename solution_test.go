@@ -97,6 +97,32 @@ func TestSolve(t *testing.T) {
 				{X: 12, Y: 0},
 			},
 		},
+
+		{
+			name: "L",
+			/*
+			 * 0 2 4 6 8 a c e
+			 *   |---|
+			 *   | ..|__
+			 * __| . . |__
+			 */
+			data: []internal.Building{
+				{Sides: [2]int{2, 6}, Height: 3},
+				{Sides: [2]int{4, 8}, Height: 1},
+			},
+			expected: []image.Point{
+				{X: 0, Y: 0},
+
+				{X: 2, Y: 0},
+				{X: 2, Y: 3},
+				{X: 6, Y: 3},
+
+				{X: 6, Y: 1},
+
+				{X: 8, Y: 1},
+				{X: 8, Y: 0},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			points, err := Solve(append([]internal.Building(nil), tc.data...))
