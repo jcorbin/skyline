@@ -44,7 +44,7 @@ func run(
 		if x2 < x1 {
 			x1, x2 = x2, x1
 		}
-		h := rng.Intn(h)
+		h := rng.Intn(h-1) + 1
 		if _, err := fmt.Fprintf(out, "%d,%d,%d\n", x1, x2, h); err != nil {
 			return err
 		}
