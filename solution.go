@@ -19,31 +19,36 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 
 	res := make([]image.Point, 0, 4*len(data))
 	open := make([]internal.Building, 0, len(data))
-	openHeight := 0
 
 	var cur image.Point
 	res = append(res, cur)
 
 	for _, b := range data {
+		// advance cur.X to left edge
 		for len(open) > 0 && b.Sides[0] > open[0].Sides[1] {
 			// TODO heap pop
 			c := open[0]
 			copy(open, open[1:])
 			open = open[:len(open)-1]
 
-			res = append(res, image.Pt(c.Sides[1], openHeight))
-			h := maxHeight(open)
-			if h != openHeight {
-				openHeight = h
-				res = append(res, image.Pt(c.Sides[1], openHeight))
+			cur.X = c.Sides[1]
+			res = append(res, cur)
+			if h := maxHeight(open); h != cur.Y {
+				cur.Y = h
+				res = append(res, cur)
 			}
 		}
+		cur.X = b.Sides[0]
 
-		if len(open) == 0 || b.Height > openHeight {
-			res = append(res, image.Pt(b.Sides[0], openHeight))
-			openHeight = b.Height
-			res = append(res, image.Pt(b.Sides[0], openHeight))
+		// expand cur.Y to encompass height
+		if len(open) == 0 || b.Height > cur.Y {
+			res = append(res, cur)
+			cur.Y = b.Height
+			res = append(res, cur)
 		}
+
+		// prune obsoleted buildings
+		open = prunePast(open, cur.X)
 
 		// TODO heap insert
 		open = append(open, b)
@@ -52,22 +57,34 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		})
 	}
 
-	for i := len(open); i > 0; {
-		i--
-
+	if len(open) > 0 {
 		// TODO if we do end up heap-ing, this would either need to be a
 		// heap-pop, or we need to fully sort the remainder before loop
-		c := open[i]
-
-		res = append(res, image.Pt(c.Sides[1], openHeight))
-		h := maxHeight(open[:i])
-		if h != openHeight {
-			openHeight = h
-			res = append(res, image.Pt(c.Sides[1], openHeight))
+		i := len(open) - 1
+		if c := open[i]; c.Sides[1] >= cur.X {
+			cur.X = c.Sides[1]
+			res = append(res, cur)
+			if h := 0; h != cur.Y {
+				cur.Y = h
+				res = append(res, cur)
+			}
+			open = prunePast(open, cur.X)
 		}
 	}
 
 	return res, nil
+}
+
+func prunePast(open []internal.Building, x int) []internal.Building {
+	for i, j := 0, len(open)-1; j >= 0 && i <= j; {
+		if x >= open[i].Sides[1] {
+			open[i], open = open[j], open[:j]
+			j--
+		} else {
+			i++
+		}
+	}
+	return open
 }
 
 func maxHeight(bs []internal.Building) (h int) {
