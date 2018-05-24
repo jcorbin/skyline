@@ -32,8 +32,8 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 			open = open[:len(open)-1]
 
 			cur.X = c.Sides[1]
-			res = append(res, cur)
-			if h := maxHeight(open); h != cur.Y {
+			if h := maxHeight(open); h < cur.Y {
+				res = append(res, cur)
 				cur.Y = h
 				res = append(res, cur)
 			}
@@ -57,19 +57,19 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		})
 	}
 
-	if len(open) > 0 {
+	for len(open) > 0 {
 		// TODO if we do end up heap-ing, this would either need to be a
 		// heap-pop, or we need to fully sort the remainder before loop
-		i := len(open) - 1
-		if c := open[i]; c.Sides[1] >= cur.X {
-			cur.X = c.Sides[1]
+		c := open[0]
+
+		cur.X = c.Sides[1]
+		if h := maxHeight(open[1:]); h < cur.Y {
 			res = append(res, cur)
-			if h := 0; h != cur.Y {
-				cur.Y = h
-				res = append(res, cur)
-			}
-			open = prunePast(open, cur.X)
+			cur.Y = h
+			res = append(res, cur)
 		}
+
+		open = prunePast(open, cur.X)
 	}
 
 	return res, nil
