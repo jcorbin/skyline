@@ -123,6 +123,37 @@ func TestSolve(t *testing.T) {
 				{X: 8, Y: 0},
 			},
 		},
+
+		{
+			name: "stair",
+			/*
+			 * 0 2 4 6 8 a c e
+			 *   |---|
+			 *   |   |
+			 *   | ..|---|
+			 *   | . . ..|__
+			 * __| . . . . |__
+			 */
+			data: []internal.Building{
+				{Sides: [2]int{2, 6}, Height: 5},
+				{Sides: [2]int{4, 10}, Height: 3},
+				{Sides: [2]int{8, 12}, Height: 1},
+			},
+			expected: []image.Point{
+				{X: 0, Y: 0},
+
+				{X: 2, Y: 0},
+				{X: 2, Y: 5},
+				{X: 6, Y: 5},
+
+				{X: 6, Y: 3},
+				{X: 10, Y: 3},
+				{X: 10, Y: 1},
+
+				{X: 12, Y: 1},
+				{X: 12, Y: 0},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			points, err := Solve(append([]internal.Building(nil), tc.data...))
