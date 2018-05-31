@@ -1,7 +1,11 @@
 package main_test
 
 import (
+	"errors"
+	"fmt"
 	"image"
+	"image/color"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,7 +15,7 @@ import (
 	"github.com/jcorbin/skyline/internal"
 )
 
-func TestSolve(t *testing.T) {
+func TestSolve_basics(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		data     []internal.Building
@@ -193,4 +197,129 @@ func TestSolve(t *testing.T) {
 			assert.Equal(t, tc.expected, points, "expected output points")
 		})
 	}
+}
+
+func TestSolve_gen(t *testing.T) {
+	seed := int64(0)
+	w, h, n := 16, 32, 8
+
+	// TODO table-ize around this point
+
+	rng := rand.New(rand.NewSource(seed))
+	data := internal.GenBuildings(rng, w, h, n)
+	points, err := Solve(data)
+	require.NoError(t, err, "expected Solve() to not fail")
+
+	oob := image.Pt(w+1, h+1)
+
+	// build expected image by plotting each building, filling the sky, then
+	// erasing the buildings
+	expected := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
+	plotBuildings(expected, data, 0x80)
+	floodFill(expected, oob, 0x00, 0xff)
+	erase(expected, 0x80)
+
+	// build actual image by plotting the skyline, filling the sky, then
+	// erasing the skyline
+	actual := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
+	require.NoError(t, plotSkyline(actual, points, 0x80))
+	floodFill(actual, oob, 0x00, 0xff)
+	erase(actual, 0x80)
+
+	// TODO this isn't a terribly useful diff to look at when it fails
+	assert.Equal(t, expected.Pix, actual.Pix)
+}
+
+func plotBuildings(gr *image.Gray, bs []internal.Building, val uint8) {
+	for _, b := range bs {
+		plotHLine(gr, b.Sides[0], b.Sides[1], 0, val)
+		plotHLine(gr, b.Sides[0], b.Sides[1], b.Height, val)
+		plotVLine(gr, b.Sides[0], 0, b.Height, val)
+		plotVLine(gr, b.Sides[1], 0, b.Height, val)
+	}
+}
+
+func plotSkyline(gr *image.Gray, points []image.Point, val uint8) error {
+	errSkylinePoint := errors.New("skyline point must share exactly one component with prior")
+	cur := points[0]
+	for _, pt := range points[1:] {
+		if pt.Eq(cur) {
+			return errSkylinePoint
+		}
+		if pt.X == cur.X {
+			plotVLine(gr, cur.X, cur.Y, pt.Y, val)
+			cur.Y = pt.Y
+		} else if pt.Y == cur.Y {
+			plotHLine(gr, cur.X, pt.X, cur.Y, val)
+			cur.X = pt.X
+		} else {
+			return errSkylinePoint
+		}
+	}
+	return nil
+}
+
+func plotHLine(gr *image.Gray, x0, x1, y int, val uint8) {
+	if x1 < x0 {
+		x0, x1 = x1, x0
+	}
+	for x := x0; x < x1; x++ {
+		gr.SetGray(x, y, color.Gray{val})
+	}
+}
+
+func plotVLine(gr *image.Gray, x, y0, y1 int, val uint8) {
+	if y1 < y0 {
+		y0, y1 = y1, y0
+	}
+	for y := y0; y < y1; y++ {
+		gr.SetGray(x, y, color.Gray{val})
+	}
+}
+
+func erase(gr *image.Gray, val uint8) {
+	for i := 0; i < len(gr.Pix); i++ {
+		if gr.Pix[i] == val {
+			gr.Pix[i] = 0x00
+		}
+	}
+}
+
+func floodFill(gr *image.Gray, pt image.Point, where, with uint8) {
+	// TODO below is most naive / slow implementation possible, probably would
+	// be worth it to move to at least a scanline approach
+	// q := make([]image.Point, 0, gr.Rect.Dy()+1)
+
+	q := make([]image.Point, 0, gr.Rect.Dx()*gr.Rect.Dy())
+	sanity := 2 * 5 * cap(q)
+	q = append(q, pt)
+	for len(q) > 0 {
+		if sanity--; sanity <= 0 {
+			panic(fmt.Sprintf(
+				"suspect infinite loop in floodFill(%v, %v, %v, %v)",
+				gr.Rect, pt, where, with,
+			))
+		}
+		var qpt image.Point
+		qpt, q = q[0], q[:copy(q, q[1:])]
+		if fill(gr, qpt, where, with) {
+			for _, d := range []image.Point{
+				image.Pt(0, 1), image.Pt(0, -1),
+				image.Pt(1, 0), image.Pt(-1, 0),
+			} {
+				npt := qpt.Add(d)
+				if npt.In(gr.Rect) {
+					q = append(q, npt)
+				}
+			}
+		}
+	}
+}
+
+func fill(gr *image.Gray, pt image.Point, where, with uint8) bool {
+	if gr.GrayAt(pt.X, pt.Y).Y == where {
+		gr.SetGray(pt.X, pt.Y, color.Gray{with})
+		return true
+	}
+	return false
 }
