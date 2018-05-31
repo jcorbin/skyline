@@ -227,9 +227,20 @@ func TestSolve_gen(t *testing.T) {
 	erase(actual, 0x80)
 
 	// TODO this isn't a terribly useful diff to look at when it fails
-	assert.Equal(t, expected.Pix, actual.Pix)
+	assert.Equal(t, strided(expected), strided(actual))
 }
 
+func strided(gr *image.Gray) [][]uint8 {
+	res := make([][]uint8, gr.Rect.Dy())
+	for y := 0; y < len(res); y++ {
+		row := make([]uint8, gr.Rect.Dx())
+		for x := 0; x < len(row); x++ {
+			row[x] = gr.GrayAt(x, y).Y
+		}
+		res[y] = row
+	}
+	return res
+}
 func plotBuildings(gr *image.Gray, bs []internal.Building, val uint8) {
 	for _, b := range bs {
 		plotHLine(gr, b.Sides[0], b.Sides[1], 0, val)
