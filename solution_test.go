@@ -230,7 +230,7 @@ func (tc genTestCase) desc() string {
 	return fmt.Sprintf("seed=%v w=%v h=%v n=%v", tc.seed, tc.w, tc.h, tc.n)
 }
 
-func (tc genTestCase) do(sol func([]internal.Building) []image.Point) genTestCaseRun {
+func (tc genTestCase) do(sol func([]internal.Building) ([]image.Point, error)) genTestCaseRun {
 	tr := genTestCaseRun{genTestCase: tc}
 	tr.rng = rand.New(rand.NewSource(tr.seed))
 	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
