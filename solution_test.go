@@ -260,6 +260,9 @@ func plotBuildings(gr *image.Gray, bs []internal.Building, val uint8) {
 }
 
 func plotSkyline(gr *image.Gray, points []image.Point, val uint8) error {
+	if len(points) == 0 {
+		return nil
+	}
 	errSkylinePoint := errors.New("skyline point must share exactly one component with prior")
 	cur := points[0]
 	for _, pt := range points[1:] {
