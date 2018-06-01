@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/color"
 	"math/rand"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -200,6 +202,12 @@ func TestSolve_basics(t *testing.T) {
 }
 
 func TestSolve_gen(t *testing.T) {
+	tr := map[uint8]rune{
+		0x00: ' ',
+		0x80: '.',
+		0xff: '#',
+	}
+
 	for _, tc := range []struct {
 		seed    int64
 		w, h, n int
@@ -224,6 +232,7 @@ func TestSolve_gen(t *testing.T) {
 			plotBuildings(expected, data, 0x80)
 			floodFill(expected, oob, 0x00, 0xff)
 			erase(expected, 0x80)
+			t.Logf("expected sky:\n%v", strings.Join(dump(expected, tr), "\n"))
 
 			points, err := Solve(data)
 			require.NoError(t, err, "expected Solve() to not fail")
@@ -235,6 +244,7 @@ func TestSolve_gen(t *testing.T) {
 			require.NoError(t, plotSkyline(actual, points, 0x80))
 			floodFill(actual, oob, 0x00, 0xff)
 			erase(actual, 0x80)
+			t.Logf("actual sky:\n%v", strings.Join(dump(actual, tr), "\n"))
 
 			// TODO this isn't a terribly useful diff to look at when it fails
 			assert.Equal(t, strided(expected), strided(actual))
@@ -244,8 +254,8 @@ func TestSolve_gen(t *testing.T) {
 
 func strided(gr *image.Gray) [][]uint8 {
 	res := make([][]uint8, gr.Rect.Dy())
+	row := make([]uint8, gr.Rect.Dx())
 	for y := 0; y < len(res); y++ {
-		row := make([]uint8, gr.Rect.Dx())
 		for x := 0; x < len(row); x++ {
 			row[x] = gr.GrayAt(x, y).Y
 		}
@@ -253,6 +263,27 @@ func strided(gr *image.Gray) [][]uint8 {
 	}
 	return res
 }
+
+func dump(gr *image.Gray, tr map[uint8]rune) []string {
+	res := make([]string, gr.Rect.Dy(), gr.Rect.Dy()+1)
+	row := make([]rune, gr.Rect.Dx())
+	for y := 0; y < len(res); y++ {
+		for x := 0; x < len(row); x++ {
+			if r, def := tr[gr.GrayAt(x, y).Y]; def {
+				row[x] = r
+			} else {
+				row[x] = '?'
+			}
+		}
+		res[len(res)-1-y] = fmt.Sprintf("% 3d: %s", y, string(row))
+	}
+	for x := 0; x < len(row); x++ {
+		row[x] = rune(strconv.FormatInt(int64(x)%10, 10)[0])
+	}
+	res = append(res, fmt.Sprintf("     %s", string(row)))
+	return res
+}
+
 func plotBuildings(gr *image.Gray, bs []internal.Building, val uint8) {
 	for _, b := range bs {
 		plotHLine(gr, b.Sides[0], b.Sides[1], 0, val)
