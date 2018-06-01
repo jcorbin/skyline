@@ -214,6 +214,7 @@ func TestSolve_gen(t *testing.T) {
 		t.Run(fmt.Sprintf("seed=%v w=%v h=%v n=%v", tc.seed, tc.w, tc.h, tc.n), func(t *testing.T) {
 			rng := rand.New(rand.NewSource(tc.seed))
 			data := internal.GenBuildings(rng, tc.w, tc.h, tc.n)
+			t.Logf("building data: %v", data)
 
 			oob := image.Pt(tc.w+1, tc.h+1)
 
@@ -226,6 +227,7 @@ func TestSolve_gen(t *testing.T) {
 
 			points, err := Solve(data)
 			require.NoError(t, err, "expected Solve() to not fail")
+			t.Logf("solution points: %v", points)
 
 			// build actual image by plotting the skyline, filling the sky, then
 			// erasing the skyline
