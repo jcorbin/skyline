@@ -40,7 +40,6 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{2, 4}, Height: 3},
 			},
 			expected: []image.Point{
-				{X: 0, Y: 0},
 				{X: 2, Y: 0},
 				{X: 2, Y: 3},
 				{X: 4, Y: 3},
@@ -60,8 +59,6 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{6, 8}, Height: 3},
 			},
 			expected: []image.Point{
-				{X: 0, Y: 0},
-
 				{X: 2, Y: 0},
 				{X: 2, Y: 3},
 				{X: 4, Y: 3},
@@ -89,8 +86,6 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{4, 10}, Height: 3},
 			},
 			expected: []image.Point{
-				{X: 0, Y: 0},
-
 				{X: 2, Y: 0},
 				{X: 2, Y: 5},
 				{X: 6, Y: 5},
@@ -117,8 +112,6 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{4, 8}, Height: 1},
 			},
 			expected: []image.Point{
-				{X: 0, Y: 0},
-
 				{X: 2, Y: 0},
 				{X: 2, Y: 3},
 				{X: 6, Y: 3},
@@ -146,8 +139,6 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{8, 12}, Height: 1},
 			},
 			expected: []image.Point{
-				{X: 0, Y: 0},
-
 				{X: 2, Y: 0},
 				{X: 2, Y: 5},
 				{X: 6, Y: 5},
@@ -177,8 +168,6 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{8, 12}, Height: 5},
 			},
 			expected: []image.Point{
-				{X: 0, Y: 0},
-
 				{X: 2, Y: 0},
 				{X: 2, Y: 1},
 				{X: 4, Y: 1},
