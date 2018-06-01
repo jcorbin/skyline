@@ -191,16 +191,7 @@ func TestSolve_basics(t *testing.T) {
 }
 
 func TestSolve_gen(t *testing.T) {
-	tr := map[uint8]rune{
-		0x00: ' ',
-		0x80: '.',
-		0xff: '#',
-	}
-
-	for _, tc := range []struct {
-		seed    int64
-		w, h, n int
-	}{
+	for _, tc := range []genTestCase{
 		{
 			seed: 0,
 			w:    16,
@@ -208,51 +199,73 @@ func TestSolve_gen(t *testing.T) {
 			n:    8,
 		},
 	} {
-		t.Run(fmt.Sprintf("seed=%v w=%v h=%v n=%v", tc.seed, tc.w, tc.h, tc.n), func(t *testing.T) {
-			rng := rand.New(rand.NewSource(tc.seed))
-			data := internal.GenBuildings(rng, tc.w, tc.h, tc.n)
-			t.Logf("building data: %v", data)
-
-			oob := image.Pt(tc.w+1, tc.h+1)
-
-			// build expected image by plotting each building, filling the sky, then
-			// erasing the buildings
-			expected := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
-			plotBuildings(expected, data, 0x80)
-			t.Logf("building data:\n%v", strings.Join(dump(expected, tr), "\n"))
-			floodFill(expected, oob, 0x00, 0xff)
-			erase(expected, 0x80)
-			t.Logf("expected sky:\n%v", strings.Join(dump(expected, tr), "\n"))
-
-			points, err := Solve(data)
-			require.NoError(t, err, "expected Solve() to not fail")
-			t.Logf("solution points: %v", points)
-
-			// build actual image by plotting the skyline, filling the sky, then
-			// erasing the skyline
-			actual := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
-			require.NoError(t, plotSkyline(actual, points, 0x80))
-			t.Logf("skyline solution:\n%v", strings.Join(dump(actual, tr), "\n"))
-			floodFill(actual, oob, 0x00, 0xff)
-			erase(actual, 0x80)
-			t.Logf("actual sky:\n%v", strings.Join(dump(actual, tr), "\n"))
-
-			// TODO this isn't a terribly useful diff to look at when it fails
-			assert.Equal(t, strided(expected), strided(actual))
-		})
+		t.Run(tc.desc(), tc.run)
 	}
 }
 
-func strided(gr *image.Gray) [][]uint8 {
-	res := make([][]uint8, gr.Rect.Dy())
-	row := make([]uint8, gr.Rect.Dx())
-	for y := 0; y < len(res); y++ {
-		for x := 0; x < len(row); x++ {
-			row[x] = gr.GrayAt(x, y).Y
-		}
-		res[y] = row
+type genTestCase struct {
+	seed    int64
+	w, h, n int
+}
+
+func (tc genTestCase) desc() string {
+	return fmt.Sprintf("seed=%v w=%v h=%v n=%v", tc.seed, tc.w, tc.h, tc.n)
+}
+
+func (tc genTestCase) do(sol func([]internal.Building) []image.Point) genTestCaseRun {
+	tr := genTestCaseRun{genTestCase: tc}
+	tr.rng = rand.New(rand.NewSource(tr.seed))
+	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
+	tr.points, tr.err = sol(append([]internal.Building(nil), tr.data...))
+	return tr
+}
+
+type genTestCaseRun struct {
+	genTestCase
+	rng    *rand.Rand
+	data   []internal.Building
+	points []image.Point
+	err    error
+}
+
+func (tr genTestCaseRun) expectedPlot() *image.Gray {
+	expected := image.NewGray(image.Rect(0, 0, tr.w+2, tr.h+2))
+	plotBuildings(expected, tr.data, 0x80)
+	return expected
+}
+
+func (tr genTestCaseRun) actualPlot() (*image.Gray, error) {
+	actual := image.NewGray(image.Rect(0, 0, tr.w+2, tr.h+2))
+	if err := plotSkyline(actual, tr.points, 0x80); err != nil {
+		return nil, err
 	}
-	return res
+	return actual, nil
+}
+
+func (tc genTestCase) run(t *testing.T) {
+	tr := tc.do(Solve)
+	require.NoError(t, tr.err, "expected Solve() to not fail")
+	actual, err := tr.actualPlot()
+	require.NoError(t, err, "unable to plot skyline")
+	expected := tr.expectedPlot()
+	floodFill(actual, actual.Rect.Max.Sub(image.Pt(1, 1)), 0x00, 0xff)
+	floodFill(expected, expected.Rect.Max.Sub(image.Pt(1, 1)), 0x00, 0xff)
+	erase(actual, 0x80)
+	erase(expected, 0x80)
+	if !assert.Equal(t, expected, actual) {
+		dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
+
+		t.Logf("building data: %v", tr.data)
+		t.Logf("solution points: %v", tr.points)
+
+		t.Logf("building plot:\n%v", strings.Join(dump(tr.expectedPlot(), dumpRunes), "\n"))
+		t.Logf("expected sky:\n%v", strings.Join(dump(expected, dumpRunes), "\n"))
+
+		skylinePlot, err := tr.actualPlot()
+		require.NoError(t, err, "unable to plot skyline")
+		t.Logf("skyline solution:\n%v", strings.Join(dump(skylinePlot, dumpRunes), "\n"))
+		t.Logf("actual sky:\n%v", strings.Join(dump(actual, dumpRunes), "\n"))
+	}
 }
 
 func dump(gr *image.Gray, tr map[uint8]rune) []string {
