@@ -230,6 +230,7 @@ func TestSolve_gen(t *testing.T) {
 			// erasing the buildings
 			expected := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
 			plotBuildings(expected, data, 0x80)
+			t.Logf("building data:\n%v", strings.Join(dump(expected, tr), "\n"))
 			floodFill(expected, oob, 0x00, 0xff)
 			erase(expected, 0x80)
 			t.Logf("expected sky:\n%v", strings.Join(dump(expected, tr), "\n"))
@@ -242,6 +243,7 @@ func TestSolve_gen(t *testing.T) {
 			// erasing the skyline
 			actual := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
 			require.NoError(t, plotSkyline(actual, points, 0x80))
+			t.Logf("skyline solution:\n%v", strings.Join(dump(actual, tr), "\n"))
 			floodFill(actual, oob, 0x00, 0xff)
 			erase(actual, 0x80)
 			t.Logf("actual sky:\n%v", strings.Join(dump(actual, tr), "\n"))
