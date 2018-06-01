@@ -31,7 +31,7 @@ func Gen(
 // GenBuildings is a convenience wrapper around Gen, returning n-randomly
 // generated buildings.
 func GenBuildings(rng *rand.Rand, w, h, n int) (bs []Building) {
-	bs = make([]Building, n)
+	bs = make([]Building, 0, n)
 	Gen(rng, w, h, n, func(b Building) error {
 		bs = append(bs, b)
 		return nil
