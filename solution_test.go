@@ -195,6 +195,24 @@ func TestSolve_gen(t *testing.T) {
 		{
 			seed: 0,
 			w:    16,
+			h:    10,
+			n:    1,
+		},
+		{
+			seed: 0,
+			w:    16,
+			h:    10,
+			n:    2,
+		},
+		{
+			seed: 0,
+			w:    16,
+			h:    10,
+			n:    3,
+		},
+		{
+			seed: 0,
+			w:    16,
 			h:    32,
 			n:    8,
 		},
