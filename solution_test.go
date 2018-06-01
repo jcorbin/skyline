@@ -200,34 +200,43 @@ func TestSolve_basics(t *testing.T) {
 }
 
 func TestSolve_gen(t *testing.T) {
-	seed := int64(0)
-	w, h, n := 16, 32, 8
+	for _, tc := range []struct {
+		seed    int64
+		w, h, n int
+	}{
+		{
+			seed: 0,
+			w:    16,
+			h:    32,
+			n:    8,
+		},
+	} {
+		t.Run(fmt.Sprintf("seed=%v w=%v h=%v n=%v", tc.seed, tc.w, tc.h, tc.n), func(t *testing.T) {
+			rng := rand.New(rand.NewSource(tc.seed))
+			data := internal.GenBuildings(rng, tc.w, tc.h, tc.n)
+			points, err := Solve(data)
+			require.NoError(t, err, "expected Solve() to not fail")
 
-	// TODO table-ize around this point
+			oob := image.Pt(tc.w+1, tc.h+1)
 
-	rng := rand.New(rand.NewSource(seed))
-	data := internal.GenBuildings(rng, w, h, n)
-	points, err := Solve(data)
-	require.NoError(t, err, "expected Solve() to not fail")
+			// build expected image by plotting each building, filling the sky, then
+			// erasing the buildings
+			expected := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
+			plotBuildings(expected, data, 0x80)
+			floodFill(expected, oob, 0x00, 0xff)
+			erase(expected, 0x80)
 
-	oob := image.Pt(w+1, h+1)
+			// build actual image by plotting the skyline, filling the sky, then
+			// erasing the skyline
+			actual := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
+			require.NoError(t, plotSkyline(actual, points, 0x80))
+			floodFill(actual, oob, 0x00, 0xff)
+			erase(actual, 0x80)
 
-	// build expected image by plotting each building, filling the sky, then
-	// erasing the buildings
-	expected := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
-	plotBuildings(expected, data, 0x80)
-	floodFill(expected, oob, 0x00, 0xff)
-	erase(expected, 0x80)
-
-	// build actual image by plotting the skyline, filling the sky, then
-	// erasing the skyline
-	actual := image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
-	require.NoError(t, plotSkyline(actual, points, 0x80))
-	floodFill(actual, oob, 0x00, 0xff)
-	erase(actual, 0x80)
-
-	// TODO this isn't a terribly useful diff to look at when it fails
-	assert.Equal(t, strided(expected), strided(actual))
+			// TODO this isn't a terribly useful diff to look at when it fails
+			assert.Equal(t, strided(expected), strided(actual))
+		})
+	}
 }
 
 func strided(gr *image.Gray) [][]uint8 {
