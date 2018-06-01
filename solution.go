@@ -15,7 +15,7 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		return nil, nil
 	}
 
-	bld := makeBuilder(1+len(data)*4).to(0, 0)
+	bld := makeBuilder(1 + len(data)*4)
 
 	pending := make([]internal.Building, 0, len(data))
 
