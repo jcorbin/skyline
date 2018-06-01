@@ -271,19 +271,58 @@ func (tc genTestCase) run(t *testing.T) {
 	erase(actual, 0x80)
 	erase(expected, 0x80)
 	if !assert.Equal(t, expected, actual) {
-		dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
-
 		t.Logf("building data: %v", tr.data)
 		t.Logf("solution points: %v", tr.points)
 
-		t.Logf("building plot:\n%v", strings.Join(dump(tr.expectedPlot(), dumpRunes), "\n"))
-		t.Logf("expected sky:\n%v", strings.Join(dump(expected, dumpRunes), "\n"))
-
 		skylinePlot, err := tr.actualPlot()
-		require.NoError(t, err, "unable to plot skyline")
-		t.Logf("skyline solution:\n%v", strings.Join(dump(skylinePlot, dumpRunes), "\n"))
-		t.Logf("actual sky:\n%v", strings.Join(dump(actual, dumpRunes), "\n"))
+		require.NoError(t, err, "unable to re-plot skyline")
+
+		dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
+		t.Logf("plots:\n%s", strings.Join(sideBySide(
+			"building boxes", "skyline",
+			dump(tr.expectedPlot(), dumpRunes),
+			dump(skylinePlot, dumpRunes),
+		), "\n"))
+		t.Logf("skies:\n%s", strings.Join(sideBySide(
+			"expected", "actual",
+			dump(expected, dumpRunes),
+			dump(actual, dumpRunes),
+		), "\n"))
 	}
+}
+
+func sideBySide(aTitle, bTitle string, a, b []string) []string {
+	var res []string
+	if len(b) > len(a) {
+		res = make([]string, 0, len(b)+1)
+	} else {
+		res = make([]string, 0, len(a)+1)
+	}
+	var aw, bw int
+	for _, as := range a {
+		if len(as) > aw {
+			aw = len(as)
+		}
+	}
+	for _, bs := range b {
+		if len(bs) > bw {
+			bw = len(bs)
+		}
+	}
+	if aTitle != "" || bTitle != "" {
+		res = append(res, fmt.Sprintf("| % *s | % *s |", aw, aTitle, bw, bTitle))
+	}
+	for i := 0; i < len(a) || i < len(b); i++ {
+		var as, bs string
+		if i < len(a) {
+			as = a[i]
+		}
+		if i < len(b) {
+			bs = b[i]
+		}
+		res = append(res, fmt.Sprintf("| % *s | % *s |", aw, as, bw, bs))
+	}
+	return res
 }
 
 func dump(gr *image.Gray, tr map[uint8]rune) []string {
