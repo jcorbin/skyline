@@ -29,3 +29,9 @@ To start a go solution branch, run `./start.bash` to create a
 `go_solution_YYYYMMDD` branch; if ran from a pre-existing
 `go_solution_YYYYMMDD`, then any prior (maybe retcon-ed) progress, is used as a
 starting point.
+
+# TODO
+
+- unify plotting layer around gray
+- add benchmark infra
+- turn the perf crank
