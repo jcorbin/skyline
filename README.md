@@ -24,3 +24,11 @@ Solution may be ran over random data, for example:
 ```shell
 $ ./bin/gen | go run main.go solution.go
 ```
+
+# TODO
+
+- verify skyline plot fail code path
+- maybe shortcircuit not implemented error, dont run cases
+- unify plotting layer around gray
+- add benchmark infra
+- turn the perf crank
