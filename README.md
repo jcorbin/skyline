@@ -25,10 +25,13 @@ Solution may be ran over random data, for example:
 $ ./bin/gen | go run main.go solution.go
 ```
 
+To start a go solution branch, run `./start.bash` to create a
+`go_solution_YYYYMMDD` branch; if ran from a pre-existing
+`go_solution_YYYYMMDD`, then any prior (maybe retcon-ed) progress, is used as a
+starting point.
+
 # TODO
 
-- verify skyline plot fail code path
-- maybe shortcircuit not implemented error, dont run cases
 - unify plotting layer around gray
 - add benchmark infra
 - turn the perf crank
