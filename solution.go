@@ -13,41 +13,57 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
-
 	bld := makeBuilder(1 + len(data)*4)
-
 	pending := make([]internal.Building, 0, len(data))
-
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
-		bx := b.Sides[0]
-
-		for i := 0; i < len(pending); i++ {
-			pbx := pending[i].Sides[1]
-			if pbx > bx {
-				pending = pending[:copy(pending, pending[i:])]
-				break
-			}
-			if remHeight := maxHeightIn(pending[i+1:]); remHeight < bld.cur.Y {
-				bld = bld.stepTo(pbx, remHeight)
-			}
-		}
-
-		if y := b.Height; y > bld.cur.Y {
-			bld = bld.stepTo(bx, y)
-		}
-
-		pending = append(pending, b)
-		sort.Slice(pending, func(i, j int) bool { return pending[i].Sides[1] < pending[j].Sides[1] })
+		bld, pending = bld.openBuilding(b, pending)
 	}
-
-	for i := 0; i < len(pending); i++ {
-		if remHeight := maxHeightIn(pending[i+1:]); remHeight < bld.cur.Y {
-			bld = bld.stepTo(pending[i].Sides[1], remHeight)
-		}
-	}
-
+	bld, pending = bld.closeOut(pending)
 	return bld.res, nil
+}
+
+type builder struct {
+	cur image.Point
+	res []image.Point
+}
+
+func makeBuilder(cap int) builder {
+	return builder{
+		res: make([]image.Point, 0, cap),
+	}
+}
+
+func (bld builder) openBuilding(b internal.Building, pending []internal.Building) (builder, []internal.Building) {
+	bld, pending = bld.closePast(b.Sides[0], pending)
+	if y := b.Height; y > bld.cur.Y {
+		bld = bld.stepTo(b.Sides[0], y)
+	}
+	pending = append(pending, b)
+	sort.Slice(pending, func(i, j int) bool { return pending[i].Sides[1] < pending[j].Sides[1] })
+	return bld, pending
+}
+
+func (bld builder) closePast(x int, pending []internal.Building) (builder, []internal.Building) {
+	i := 0
+	for ; i < len(pending) && pending[i].Sides[1] <= x; i++ {
+		bld = bld.closeBuilding(pending[i], pending[i+1:])
+	}
+	return bld, pending[:copy(pending, pending[i:])]
+}
+
+func (bld builder) closeOut(pending []internal.Building) (builder, []internal.Building) {
+	for i := 0; i < len(pending); i++ {
+		bld = bld.closeBuilding(pending[i], pending[i+1:])
+	}
+	return bld, pending[:0]
+}
+
+func (bld builder) closeBuilding(b internal.Building, rem []internal.Building) builder {
+	if remHeight := maxHeightIn(rem); remHeight < bld.cur.Y {
+		bld = bld.stepTo(b.Sides[1], remHeight)
+	}
+	return bld
 }
 
 // maxHeightIn computes the maximum height in a slice of buildings; it is used
@@ -64,17 +80,6 @@ func maxHeightIn(buildings []internal.Building) (h int) {
 		}
 	}
 	return h
-}
-
-type builder struct {
-	cur image.Point
-	res []image.Point
-}
-
-func makeBuilder(cap int) builder {
-	return builder{
-		res: make([]image.Point, 0, cap),
-	}
 }
 
 func (bld builder) stepTo(x, y int) builder {
