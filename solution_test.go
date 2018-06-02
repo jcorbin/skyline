@@ -21,6 +21,11 @@ import (
 )
 
 func TestSolve(t *testing.T) {
+	const (
+		minBuildings = 1
+		maxBuildings = 1024
+	)
+
 	if _, err := Solve(nil); err != nil {
 		t.Logf("Solve() failed unequivocally: %v", err)
 		t.Fail()
@@ -193,46 +198,25 @@ func TestSolve(t *testing.T) {
 			seed: 0,
 			w:    16,
 			h:    10,
-			n:    1,
 		},
 		{
 			seed: 0,
-			w:    16,
-			h:    10,
-			n:    2,
-		},
-		{
-			seed: 0,
-			w:    16,
-			h:    10,
-			n:    3,
-		},
-		{
-			seed: 0,
-			w:    16,
+			w:    32,
 			h:    32,
-			n:    8,
 		},
 		{
 			seed: 0,
-			w:    16,
-			h:    32,
-			n:    16,
-		},
-		{
-			seed: 0,
-			w:    16,
-			h:    32,
-			n:    24,
-		},
-		{
-			seed: 0,
-			w:    16,
-			h:    32,
-			n:    32,
+			w:    64,
+			h:    64,
 		},
 	} {
-		t.Run(tc.desc(), tc.run(Solve))
+		t.Run(tc.desc(), func(t *testing.T) {
+			tr := tc.run(Solve)
+			if tr.isGen() && tr.n == 0 {
+				tr = tr.searchN(t, minBuildings, maxBuildings)
+			}
+			tr.run(t)
+		})
 	}
 }
 
@@ -264,7 +248,7 @@ func (tc testCase) isGen() bool {
 	if tc.data != nil {
 		return false
 	}
-	return tc.w > 0 && tc.h > 0 && tc.n > 0
+	return tc.w > 0 && tc.h > 0
 }
 
 func (tc testCase) desc() string {
@@ -273,18 +257,52 @@ func (tc testCase) desc() string {
 		return tc.name
 	}
 	if tc.isGen() {
+		if tc.n == 0 {
+			return fmt.Sprintf("genTest<seed=%v w=%v h=%v>", tc.seed, tc.w, tc.h)
+		}
 		return fmt.Sprintf("genTest<seed=%v w=%v h=%v n=%v>", tc.seed, tc.w, tc.h, tc.n)
 	}
 	return fmt.Sprintf("staticTest<data=%v points=%v>", tc.data, tc.points)
 }
 
-func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) func(*testing.T) {
-	tr := testCaseRun{
+func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) testCaseRun {
+	return testCaseRun{
 		testCase: tc,
 		sol:      sol,
 		gen:      tc.isGen(),
 	}
-	return tr.run
+}
+
+func (tr testCaseRun) searchN(t *testing.T, min, max int) testCaseRun {
+	if tr.n = min; tr.fails() {
+		t.Logf("found minimal failure @n=%v", tr.n)
+		return tr
+	}
+	if tr.n = max; !tr.fails() {
+		t.Logf("pass @n={min=%v, max=%v}", min, max)
+		return tr
+	}
+	sanity := max - min
+	for n := min; tr.n-n > 1; {
+		sanity--
+		require.True(t, sanity > 0, "search looping infinitely")
+		lastN := tr.n
+		tr.n = lastN/2 + n/2
+		if tr.fails() {
+			t.Logf("fail @n=%v", tr.n)
+		} else {
+			t.Logf("pass @n=%v", tr.n)
+			n, tr.n = tr.n, lastN
+		}
+	}
+	t.Logf("found minimal failure @n=%v", tr.n)
+	return tr
+}
+
+func (tr testCaseRun) fails() bool {
+	var ft testing.T
+	tr.run(&ft)
+	return ft.Failed()
 }
 
 func (tr testCaseRun) run(t *testing.T) {
