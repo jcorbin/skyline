@@ -19,7 +19,7 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 	for _, b := range data {
 		bld, pending = bld.openBuilding(b, pending)
 	}
-	bld, pending = bld.closePast(0, pending)
+	bld, pending = bld.closeOut(pending)
 	return bld.res, nil
 }
 
@@ -46,13 +46,24 @@ func (bld builder) openBuilding(b internal.Building, pending []internal.Building
 
 func (bld builder) closePast(x int, pending []internal.Building) (builder, []internal.Building) {
 	i := 0
-	for ; i < len(pending) && (x <= 0 || pending[i].Sides[1] <= x); i++ {
-		if remHeight := maxHeightIn(pending[i+1:]); remHeight < bld.cur.Y {
-			bld = bld.stepTo(pending[i].Sides[1], remHeight)
-		}
+	for ; i < len(pending) && pending[i].Sides[1] <= x; i++ {
+		bld = bld.closeBuilding(pending[i], pending[i+1:])
 	}
-	pending = pending[:copy(pending, pending[i:])]
-	return bld, pending
+	return bld, pending[:copy(pending, pending[i:])]
+}
+
+func (bld builder) closeOut(pending []internal.Building) (builder, []internal.Building) {
+	for i := 0; i < len(pending); i++ {
+		bld = bld.closeBuilding(pending[i], pending[i+1:])
+	}
+	return bld, pending[:0]
+}
+
+func (bld builder) closeBuilding(b internal.Building, rem []internal.Building) builder {
+	if remHeight := maxHeightIn(rem); remHeight < bld.cur.Y {
+		bld = bld.stepTo(b.Sides[1], remHeight)
+	}
+	return bld
 }
 
 // maxHeightIn computes the maximum height in a slice of buildings; it is used
