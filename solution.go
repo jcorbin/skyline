@@ -2,8 +2,6 @@ package main
 
 import (
 	"image"
-	"log"
-	// "log"
 	"sort"
 
 	"github.com/jcorbin/skyline/internal"
@@ -23,7 +21,6 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
 		bx := b.Sides[0]
-		// log.Printf("each b %v", b)
 
 		for i := 0; i < len(pending); i++ {
 			pbx := pending[i].Sides[1]
@@ -32,13 +29,11 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 				break
 			}
 			if remHeight := maxHeightIn(pending[i+1:]); remHeight < bld.cur.Y {
-				// log.Printf("rem step to <%v, %v>", pbx, remHeight)
 				bld = bld.stepTo(pbx, remHeight)
 			}
 		}
 
 		if y := b.Height; y > bld.cur.Y {
-			// log.Printf("step up to <%v, %v>", bx, y)
 			bld = bld.stepTo(bx, y)
 		}
 
@@ -46,10 +41,8 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		sort.Slice(pending, func(i, j int) bool { return data[i].Sides[1] < data[j].Sides[1] })
 	}
 
-	log.Printf("post-proc pending: %v", pending)
 	for i := 0; i < len(pending); i++ {
 		if remHeight := maxHeightIn(pending[i+1:]); remHeight < bld.cur.Y {
-			// log.Printf("drain rem to <%v, %v>", pending[i].Sides[1], remHeight)
 			bld = bld.stepTo(pending[i].Sides[1], remHeight)
 		}
 	}
