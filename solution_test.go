@@ -21,6 +21,12 @@ import (
 )
 
 func TestSolve(t *testing.T) {
+	if _, err := Solve(nil); err != nil {
+		t.Logf("Solve() failed unequivocally: %v", err)
+		t.Fail()
+		return
+	}
+
 	for _, tc := range []testCase{
 		// basic (manual) test cases
 		{
