@@ -213,6 +213,24 @@ func TestSolve(t *testing.T) {
 			h:    32,
 			n:    8,
 		},
+		{
+			seed: 0,
+			w:    16,
+			h:    32,
+			n:    16,
+		},
+		{
+			seed: 0,
+			w:    16,
+			h:    32,
+			n:    24,
+		},
+		{
+			seed: 0,
+			w:    16,
+			h:    32,
+			n:    32,
+		},
 	} {
 		t.Run(tc.desc(), tc.run(Solve))
 	}
