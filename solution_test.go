@@ -381,7 +381,7 @@ func plotHLine(gr *image.Gray, x0, x1, y int, val uint8) {
 	if x1 < x0 {
 		x0, x1 = x1, x0
 	}
-	for x := x0; x < x1; x++ {
+	for x := x0; x <= x1; x++ {
 		gr.SetGray(x, y, color.Gray{val})
 	}
 }
@@ -390,7 +390,7 @@ func plotVLine(gr *image.Gray, x, y0, y1 int, val uint8) {
 	if y1 < y0 {
 		y0, y1 = y1, y0
 	}
-	for y := y0; y < y1; y++ {
+	for y := y0; y <= y1; y++ {
 		gr.SetGray(x, y, color.Gray{val})
 	}
 }
