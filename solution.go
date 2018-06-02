@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"log"
 	// "log"
 	"sort"
 
@@ -45,6 +46,7 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		sort.Slice(pending, func(i, j int) bool { return data[i].Sides[1] < data[j].Sides[1] })
 	}
 
+	log.Printf("post-proc pending: %v", pending)
 	for i := 0; i < len(pending); i++ {
 		if remHeight := maxHeightIn(pending[i+1:]); remHeight < bld.cur.Y {
 			// log.Printf("drain rem to <%v, %v>", pending[i].Sides[1], remHeight)
