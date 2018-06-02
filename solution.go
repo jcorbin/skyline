@@ -38,7 +38,7 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		}
 
 		pending = append(pending, b)
-		sort.Slice(pending, func(i, j int) bool { return data[i].Sides[1] < data[j].Sides[1] })
+		sort.Slice(pending, func(i, j int) bool { return pending[i].Sides[1] < pending[j].Sides[1] })
 	}
 
 	for i := 0; i < len(pending); i++ {
