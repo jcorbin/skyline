@@ -20,16 +20,13 @@ import (
 	"github.com/jcorbin/skyline/internal"
 )
 
-func TestSolve_basics(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		data     []internal.Building
-		expected []image.Point
-	}{
+func TestSolve(t *testing.T) {
+	for _, tc := range []testCase{
+		// basic (manual) test cases
 		{
-			name:     "empty data",
-			data:     nil,
-			expected: nil,
+			name:   "empty data",
+			data:   nil,
+			points: nil,
 		},
 
 		{
@@ -42,7 +39,7 @@ func TestSolve_basics(t *testing.T) {
 			data: []internal.Building{
 				{Sides: [2]int{2, 4}, Height: 3},
 			},
-			expected: []image.Point{
+			points: []image.Point{
 				{X: 2, Y: 0},
 				{X: 2, Y: 3},
 				{X: 4, Y: 3},
@@ -61,7 +58,7 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{2, 4}, Height: 3},
 				{Sides: [2]int{6, 8}, Height: 3},
 			},
-			expected: []image.Point{
+			points: []image.Point{
 				{X: 2, Y: 0},
 				{X: 2, Y: 3},
 				{X: 4, Y: 3},
@@ -88,7 +85,7 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{8, 12}, Height: 5},
 				{Sides: [2]int{4, 10}, Height: 3},
 			},
-			expected: []image.Point{
+			points: []image.Point{
 				{X: 2, Y: 0},
 				{X: 2, Y: 5},
 				{X: 6, Y: 5},
@@ -114,7 +111,7 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{2, 6}, Height: 3},
 				{Sides: [2]int{4, 8}, Height: 1},
 			},
-			expected: []image.Point{
+			points: []image.Point{
 				{X: 2, Y: 0},
 				{X: 2, Y: 3},
 				{X: 6, Y: 3},
@@ -141,7 +138,7 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{4, 10}, Height: 3},
 				{Sides: [2]int{8, 12}, Height: 1},
 			},
-			expected: []image.Point{
+			points: []image.Point{
 				{X: 2, Y: 0},
 				{X: 2, Y: 5},
 				{X: 6, Y: 5},
@@ -170,7 +167,7 @@ func TestSolve_basics(t *testing.T) {
 				{Sides: [2]int{4, 10}, Height: 3},
 				{Sides: [2]int{8, 12}, Height: 5},
 			},
-			expected: []image.Point{
+			points: []image.Point{
 				{X: 2, Y: 0},
 				{X: 2, Y: 1},
 				{X: 4, Y: 1},
@@ -184,17 +181,8 @@ func TestSolve_basics(t *testing.T) {
 				{X: 12, Y: 0},
 			},
 		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			points, err := Solve(append([]internal.Building(nil), tc.data...))
-			require.NoError(t, err, "expected Solve() to not fail")
-			assert.Equal(t, tc.expected, points, "expected output points")
-		})
-	}
-}
 
-func TestSolve_gen(t *testing.T) {
-	for _, tc := range []genTestCase{
+		// generative test cases
 		{
 			seed: 0,
 			w:    16,
@@ -220,47 +208,120 @@ func TestSolve_gen(t *testing.T) {
 			n:    8,
 		},
 	} {
-		t.Run(tc.desc(), tc.run)
+		t.Run(tc.desc(), tc.run(Solve))
 	}
 }
 
-type genTestCase struct {
+type testCase struct {
+	name   string
+	data   []internal.Building
+	points []image.Point
+
+	// generative parameters
 	seed    int64
 	w, h, n int
 }
 
-func (tc genTestCase) desc() string {
-	return fmt.Sprintf("seed=%v w=%v h=%v n=%v", tc.seed, tc.w, tc.h, tc.n)
-}
+type testCaseRun struct {
+	sol func([]internal.Building) ([]image.Point, error)
+	testCase
 
-func (tc genTestCase) do(sol func([]internal.Building) ([]image.Point, error)) genTestCaseRun {
-	tr := genTestCaseRun{genTestCase: tc}
-	tr.rng = rand.New(rand.NewSource(tr.seed))
-	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
-	tr.points, tr.err = sol(append([]internal.Building(nil), tr.data...))
-	return tr
-}
+	gen bool
+	rng *rand.Rand
 
-type genTestCaseRun struct {
-	genTestCase
-	rng    *rand.Rand
-	data   []internal.Building
 	points []image.Point
 	err    error
+
+	buildingPlot, skylinePlot *image.Gray
+	expectedSky, actualSky    *image.Gray
 }
 
-func (tr genTestCaseRun) expectedPlot() *image.Gray {
-	expected := image.NewGray(image.Rect(0, 0, tr.w+2, tr.h+2))
-	plotBuildings(expected, tr.data, 0x80)
-	return expected
-}
-
-func (tr genTestCaseRun) actualPlot() (*image.Gray, error) {
-	actual := image.NewGray(image.Rect(0, 0, tr.w+2, tr.h+2))
-	if err := plotSkyline(actual, tr.points, 0x80); err != nil {
-		return nil, err
+func (tc testCase) isGen() bool {
+	if tc.data != nil {
+		return false
 	}
-	return actual, nil
+	return tc.w > 0 && tc.h > 0 && tc.n > 0
+}
+
+func (tc testCase) desc() string {
+	if tc.name != "" {
+		// manually named case
+		return tc.name
+	}
+	if tc.isGen() {
+		return fmt.Sprintf("genTest<seed=%v w=%v h=%v n=%v>", tc.seed, tc.w, tc.h, tc.n)
+	}
+	return fmt.Sprintf("staticTest<data=%v points=%v>", tc.data, tc.points)
+}
+
+func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) func(*testing.T) {
+	tr := testCaseRun{
+		testCase: tc,
+		sol:      sol,
+		gen:      tc.isGen(),
+	}
+	return tr.run
+}
+
+func (tr testCaseRun) run(t *testing.T) {
+	defer setupTestLogOutput(t).restore(os.Stderr)
+	if tr.gen {
+		tr.doGenTest(t)
+	} else {
+		tr.doStaticTest(t)
+	}
+}
+
+func (tr testCaseRun) doGenTest(t *testing.T) {
+	tr.rng = rand.New(rand.NewSource(tr.seed))
+	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
+	tr.points, tr.err = tr.sol(append([]internal.Building(nil), tr.data...))
+	require.NoError(t, tr.err, "expected solution to not fail")
+	require.NoError(t, tr.buildPlots(), "unable to plot skyline")
+	if !assert.Equal(t, tr.expectedSky, tr.actualSky) {
+		tr.logDebugInfo(t.Logf)
+	}
+}
+
+func (tr testCaseRun) doStaticTest(t *testing.T) {
+	tr.points, tr.err = tr.sol(append([]internal.Building(nil), tr.data...))
+	require.NoError(t, tr.err, "expected solution to not fail")
+	if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
+		if err := tr.buildPlots(); err != nil {
+			t.Logf("unable to plot skyline: %v", err)
+		} else {
+			tr.logDebugInfo(t.Logf)
+		}
+	}
+}
+
+func (tr testCaseRun) logDebugInfo(logf func(string, ...interface{})) {
+	logf("building data: %v", tr.data)
+	logf("solution points: %v", tr.points)
+	dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
+	logf("plots:\n%s", strings.Join(sideBySide(
+		"building boxes", "skyline",
+		dump(tr.buildingPlot, dumpRunes),
+		dump(tr.skylinePlot, dumpRunes),
+	), "\n"))
+	logf("skies:\n%s", strings.Join(sideBySide(
+		"expected", "actual",
+		dump(tr.expectedSky, dumpRunes),
+		dump(tr.actualSky, dumpRunes),
+	), "\n"))
+}
+
+func (tr *testCaseRun) buildPlots() error {
+	oob := image.Pt(tr.w+1, tr.h+1) // out-of-bounds fill starting point
+	tr.buildingPlot = image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
+	tr.skylinePlot = image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
+	plotBuildings(tr.buildingPlot, tr.data, 0x80)
+	if err := plotSkyline(tr.skylinePlot, tr.points, 0x80); err != nil {
+		return err
+	}
+	tr.expectedSky = plot2sky(tr.buildingPlot, oob, 0x00, 0xff, 0x80)
+	tr.actualSky = plot2sky(tr.skylinePlot, oob, 0x00, 0xff, 0x80)
+	return nil
 }
 
 type testLogOutput struct {
@@ -285,39 +346,6 @@ func (tlo testLogOutput) restore(priorOutput io.Writer) {
 func (tlo testLogOutput) Write(p []byte) (int, error) {
 	tlo.Logf("%s", p)
 	return 0, nil
-}
-
-func (tc genTestCase) run(t *testing.T) {
-	defer setupTestLogOutput(t).restore(os.Stderr)
-
-	tr := tc.do(Solve)
-	require.NoError(t, tr.err, "expected Solve() to not fail")
-	actual, err := tr.actualPlot()
-	require.NoError(t, err, "unable to plot skyline")
-	expected := tr.expectedPlot()
-	floodFill(actual, actual.Rect.Max.Sub(image.Pt(1, 1)), 0x00, 0xff)
-	floodFill(expected, expected.Rect.Max.Sub(image.Pt(1, 1)), 0x00, 0xff)
-	erase(actual, 0x80)
-	erase(expected, 0x80)
-	if !assert.Equal(t, expected, actual) {
-		t.Logf("building data: %v", tr.data)
-		t.Logf("solution points: %v", tr.points)
-
-		skylinePlot, err := tr.actualPlot()
-		require.NoError(t, err, "unable to re-plot skyline")
-
-		dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
-		t.Logf("plots:\n%s", strings.Join(sideBySide(
-			"building boxes", "skyline",
-			dump(tr.expectedPlot(), dumpRunes),
-			dump(skylinePlot, dumpRunes),
-		), "\n"))
-		t.Logf("skies:\n%s", strings.Join(sideBySide(
-			"expected", "actual",
-			dump(expected, dumpRunes),
-			dump(actual, dumpRunes),
-		), "\n"))
-	}
 }
 
 func sideBySide(aTitle, bTitle string, a, b []string) []string {
@@ -424,12 +452,25 @@ func plotVLine(gr *image.Gray, x, y0, y1 int, val uint8) {
 	}
 }
 
-func erase(gr *image.Gray, val uint8) {
-	for i := 0; i < len(gr.Pix); i++ {
-		if gr.Pix[i] == val {
-			gr.Pix[i] = 0x00
+func plot2sky(
+	gr *image.Gray,
+	fillAt image.Point, fillWhere, fillWith uint8,
+	eraseWhere uint8,
+) *image.Gray {
+	ngr := image.NewGray(gr.Rect)
+	copy(ngr.Pix, gr.Pix)
+
+	// fill sky
+	floodFill(ngr, fillAt, fillWhere, fillWith)
+
+	// erase plot
+	for i := 0; i < len(ngr.Pix); i++ {
+		if ngr.Pix[i] == eraseWhere {
+			ngr.Pix[i] = 0x00
 		}
 	}
+
+	return ngr
 }
 
 func floodFill(gr *image.Gray, pt image.Point, where, with uint8) {
