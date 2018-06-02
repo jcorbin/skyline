@@ -272,13 +272,26 @@ func (tr testCaseRun) run(t *testing.T) {
 	}
 }
 
+func grayEQ(a, b *image.Gray) bool {
+	if !a.Rect.Eq(b.Rect) {
+		return false
+	}
+	for i := range a.Pix {
+		if a.Pix[i] != b.Pix[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (tr testCaseRun) doGenTest(t *testing.T) {
 	tr.rng = rand.New(rand.NewSource(tr.seed))
 	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
 	tr.points, tr.err = tr.sol(append([]internal.Building(nil), tr.data...))
 	require.NoError(t, tr.err, "expected solution to not fail")
 	require.NoError(t, tr.buildPlots(), "unable to plot skyline")
-	if !assert.Equal(t, tr.expectedSky, tr.actualSky) {
+	if !grayEQ(tr.expectedSky, tr.actualSky) {
+		t.Fail()
 		tr.logDebugInfo(t.Logf)
 	}
 }
