@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
+	"log"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -260,7 +263,33 @@ func (tr genTestCaseRun) actualPlot() (*image.Gray, error) {
 	return actual, nil
 }
 
+type testLogOutput struct {
+	*testing.T
+	priorFlags int
+}
+
+func setupTestLogOutput(t *testing.T) testLogOutput {
+	var tlo testLogOutput
+	tlo.T = t
+	tlo.priorFlags = log.Flags()
+	log.SetFlags(0)
+	log.SetOutput(tlo)
+	return tlo
+}
+
+func (tlo testLogOutput) restore(priorOutput io.Writer) {
+	log.SetOutput(priorOutput)
+	log.SetFlags(tlo.priorFlags)
+}
+
+func (tlo testLogOutput) Write(p []byte) (int, error) {
+	tlo.Logf("%s", p)
+	return 0, nil
+}
+
 func (tc genTestCase) run(t *testing.T) {
+	defer setupTestLogOutput(t).restore(os.Stderr)
+
 	tr := tc.do(Solve)
 	require.NoError(t, tr.err, "expected Solve() to not fail")
 	actual, err := tr.actualPlot()
