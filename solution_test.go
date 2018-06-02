@@ -282,6 +282,7 @@ func (tr testCaseRun) searchN(t *testing.T, min, max int) testCaseRun {
 		t.Logf("pass @n={min=%v, max=%v}", min, max)
 		return tr
 	}
+	t.Logf("fail @n=%v", tr.n)
 	sanity := max - min
 	for n := min; tr.n-n > 1; {
 		sanity--
