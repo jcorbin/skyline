@@ -17,6 +17,8 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // Solver holds any state for solving the skyline problem, potentially re-using
 // previously allocated state memory.
 type Solver struct {
+	pb  pending
+	bld builder
 }
 
 // Solve receives a slice of building definitions, and is expected to return
@@ -26,14 +28,14 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
-	bld := makeBuilder(1 + len(data)*4)
-	pb := makePending(len(data))
+	sol.bld = makeBuilder(1 + len(data)*4)
+	sol.pb = makePending(len(data))
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
-		pb = bld.openBuilding(b, pb)
+		sol.pb = sol.bld.openBuilding(b, sol.pb)
 	}
-	pb = bld.closeOut(pb)
-	return bld.res, nil
+	sol.pb = sol.bld.closeOut(sol.pb)
+	return sol.bld.res, nil
 }
 
 type pending []internal.Building
