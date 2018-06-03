@@ -53,6 +53,14 @@ func (pb *pending) Pop() interface{} {
 	pb.bs = pb.bs[:i]
 	return b
 }
+func (pb pending) AnyPast(x int) bool {
+	for i := range pb.bs {
+		if pb.bs[i].Sides[1] <= x {
+			return true
+		}
+	}
+	return false
+}
 
 type builder struct {
 	cur image.Point
@@ -60,15 +68,19 @@ type builder struct {
 }
 
 func (bld builder) openBuilding(b internal.Building, pb *pending) builder {
-	bld = bld.closePast(b.Sides[0], pb)
-	if y := b.Height; y > bld.cur.Y {
-		bld = bld.stepTo(b.Sides[0], y)
+	x := b.Sides[0]
+	if pb.AnyPast(x) {
+		bld = bld.closePast(x, pb)
 	}
-	heap.Push(pb, b)
+	if y := b.Height; y > bld.cur.Y {
+		bld = bld.stepTo(x, y)
+	}
+	pb.bs = append(pb.bs, b)
 	return bld
 }
 
 func (bld builder) closePast(x int, pb *pending) builder {
+	heap.Init(pb)
 	for pb.Len() > 0 && pb.bs[0].Sides[1] <= x {
 		b := pb.bs[0]
 		heap.Pop(pb)
@@ -78,6 +90,7 @@ func (bld builder) closePast(x int, pb *pending) builder {
 }
 
 func (bld builder) closeOut(pb *pending) builder {
+	heap.Init(pb)
 	for pb.Len() > 0 {
 		b := pb.bs[0]
 		heap.Pop(pb)
