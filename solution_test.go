@@ -210,6 +210,29 @@ func TestSolve(t *testing.T) {
 	}
 }
 
+func BenchmarkSolve(b *testing.B) {
+	for _, tc := range []testCase{
+		{
+			seed: 0,
+			w:    16,
+			h:    10,
+		},
+		{
+			seed: 0,
+			w:    32,
+			h:    32,
+		},
+		{
+			seed: 0,
+			w:    64,
+			h:    64,
+		},
+	} {
+		tr := tc.run(Solve)
+		b.Run(tr.String(), tr.runBench)
+	}
+}
+
 type testCase struct {
 	name   string
 	data   []internal.Building
@@ -332,6 +355,46 @@ func (tr testCaseRun) doGenSearchTest(t *testing.T) (pass bool) {
 	}
 	t.Logf("found minimal failure case in %v", tr)
 	return false
+}
+
+func (tr testCaseRun) runBench(b *testing.B) {
+	defer setupTestLogOutput(b).restore(os.Stderr)
+	if !tr.gen {
+		tr.doStaticBench(b)
+	} else if tr.n != 0 {
+		tr.doGenBench(b)
+	} else {
+		tr.doGenScaleBench(b)
+	}
+}
+
+func (tr testCaseRun) doStaticBench(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		data := append([]internal.Building(nil), tr.data...)
+		_, err := tr.sol(data)
+		require.NoError(b, err, "expected solution to not fail")
+	}
+}
+
+func (tr testCaseRun) doGenBench(b *testing.B) {
+	tr.rng = rand.New(rand.NewSource(tr.seed))
+	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
+	for i := 0; i < b.N; i++ {
+		data := append([]internal.Building(nil), tr.data...)
+		_, err := tr.sol(data)
+		require.NoError(b, err, "expected solution to not fail")
+	}
+}
+
+func (tr testCaseRun) doGenScaleBench(b *testing.B) {
+	const (
+		min  = 0
+		max  = 1024
+		step = 32
+	)
+	for tr.n = min; tr.n < max; tr.n += step {
+		b.Run(tr.String(), tr.doGenBench)
+	}
 }
 
 func (tr testCaseRun) logDebugInfo(logf func(string, ...interface{})) {
