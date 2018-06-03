@@ -286,6 +286,11 @@ func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) tes
 	}
 }
 
+func (tr *testCaseRun) solve(data []internal.Building) (err error) {
+	tr.points, tr.err = tr.sol(data)
+	return tr.err
+}
+
 func (tr testCaseRun) runTest(t *testing.T) {
 	defer setupTestLogOutput(t).restore(os.Stderr)
 	if !tr.gen {
@@ -298,8 +303,8 @@ func (tr testCaseRun) runTest(t *testing.T) {
 }
 
 func (tr testCaseRun) doStaticTest(t *testing.T) {
-	tr.points, tr.err = tr.sol(append([]internal.Building(nil), tr.data...))
-	require.NoError(t, tr.err, "expected solution to not fail")
+	data := append([]internal.Building(nil), tr.data...)
+	require.NoError(t, tr.solve(data), "expected solution to not fail")
 	if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
 		if err := tr.buildPlots(); err != nil {
 			t.Logf("unable to plot skyline: %v", err)
@@ -312,8 +317,8 @@ func (tr testCaseRun) doStaticTest(t *testing.T) {
 func (tr testCaseRun) doGenTest(t *testing.T) {
 	tr.rng = rand.New(rand.NewSource(tr.seed))
 	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
-	tr.points, tr.err = tr.sol(append([]internal.Building(nil), tr.data...))
-	require.NoError(t, tr.err, "expected solution to not fail")
+	data := append([]internal.Building(nil), tr.data...)
+	require.NoError(t, tr.solve(data), "expected solution to not fail")
 	require.NoError(t, tr.buildPlots(), "unable to plot skyline")
 	if !grayEQ(tr.expectedSky, tr.actualSky) {
 		t.Fail()
@@ -371,8 +376,7 @@ func (tr testCaseRun) runBench(b *testing.B) {
 func (tr testCaseRun) doStaticBench(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		data := append([]internal.Building(nil), tr.data...)
-		_, err := tr.sol(data)
-		require.NoError(b, err, "expected solution to not fail")
+		require.NoError(b, tr.solve(data), "expected solution to not fail")
 	}
 }
 
@@ -381,8 +385,7 @@ func (tr testCaseRun) doGenBench(b *testing.B) {
 	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
 	for i := 0; i < b.N; i++ {
 		data := append([]internal.Building(nil), tr.data...)
-		_, err := tr.sol(data)
-		require.NoError(b, err, "expected solution to not fail")
+		require.NoError(b, tr.solve(data), "expected solution to not fail")
 	}
 }
 
