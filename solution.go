@@ -32,9 +32,9 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	pb := make(pending, 0, len(data))
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
-		bld, pb = bld.openBuilding(b, pb)
+		pb = bld.openBuilding(b, pb)
 	}
-	bld, pb = bld.closeOut(pb)
+	pb = bld.closeOut(pb)
 	return bld.res, nil
 }
 
@@ -91,42 +91,41 @@ type builder struct {
 	res []image.Point
 }
 
-func (bld builder) openBuilding(b internal.Building, pb pending) (builder, pending) {
+func (bld *builder) openBuilding(b internal.Building, pb pending) pending {
 	x := b.Sides[0]
 	if pb.anyPast(x) {
-		bld, pb = bld.closePast(x, pb)
+		pb = bld.closePast(x, pb)
 	}
 	if y := b.Height; y > bld.cur.Y {
-		bld = bld.stepTo(x, y)
+		bld.stepTo(x, y)
 	}
-	return bld, append(pb, b)
+	return append(pb, b)
 }
 
-func (bld builder) closePast(x int, pb pending) (builder, pending) {
+func (bld *builder) closePast(x int, pb pending) pending {
 	pb.heapify()
 	for len(pb) > 0 && pb[0].Sides[1] <= x {
 		var b internal.Building
 		b, pb = pb.pop()
-		bld = bld.closeBuilding(b, pb)
+		bld.closeBuilding(b, pb)
 	}
-	return bld, pb
+	return pb
 }
 
-func (bld builder) closeOut(pb pending) (builder, pending) {
+func (bld *builder) closeOut(pb pending) pending {
 	pb.heapify()
 	for len(pb) > 0 {
 		var b internal.Building
 		b, pb = pb.pop()
-		bld = bld.closeBuilding(b, pb)
+		bld.closeBuilding(b, pb)
 	}
-	return bld, pb
+	return pb
 }
 
-func (bld builder) closeBuilding(b internal.Building, pb pending) builder {
+func (bld *builder) closeBuilding(b internal.Building, pb pending) {
 	if remHeight := maxHeightIn(pb); remHeight < bld.cur.Y {
-		bld = bld.stepTo(b.Sides[1], remHeight)
+		bld.stepTo(b.Sides[1], remHeight)
 	}
-	return bld
 }
 
 // maxHeightIn computes the maximum height in a slice of buildings; it is used
@@ -145,19 +144,17 @@ func maxHeightIn(buildings []internal.Building) (h int) {
 	return h
 }
 
-func (bld builder) stepTo(x, y int) builder {
+func (bld *builder) stepTo(x, y int) {
 	if x > bld.cur.X {
-		bld = bld.tox(x)
+		bld.tox(x)
 	}
-	bld = bld.toy(y)
-	return bld
+	bld.toy(y)
 }
 
-func (bld builder) tox(x int) builder { return bld.to(x, bld.cur.Y) }
-func (bld builder) toy(y int) builder { return bld.to(bld.cur.X, y) }
-func (bld builder) to(x, y int) builder {
+func (bld *builder) tox(x int) { bld.to(x, bld.cur.Y) }
+func (bld *builder) toy(y int) { bld.to(bld.cur.X, y) }
+func (bld *builder) to(x, y int) {
 	bld.cur.X = x
 	bld.cur.Y = y
 	bld.res = append(bld.res, bld.cur)
-	return bld
 }
