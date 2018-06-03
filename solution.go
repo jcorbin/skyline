@@ -31,13 +31,13 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	if n := 4*len(data) + 1; n > cap(sol.bld.res) {
 		sol.bld.res = make([]image.Point, n)
 	}
-	if n := len(data); n > cap(sol.pb) {
-		sol.pb = make(pending, n)
+	if n := len(data); n > cap(sol.pb.co) {
+		sol.pb = pending{make(closeOrder, n)}
 	}
 	sol.bld.cur = image.ZP
 	sol.bld.res = sol.bld.res[:0]
-	sol.pb = sol.pb[:0]
-	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
+	sol.pb.co = sol.pb.co[:0]
+	sort.Sort(openOrder(data))
 	for _, b := range data {
 		sol.pb = sol.bld.openBuilding(b, sol.pb)
 	}
@@ -45,14 +45,26 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	return sol.bld.res, nil
 }
 
-type pending []internal.Building
+type openOrder []internal.Building
+type closeOrder []internal.Building
 
-func (pb pending) less(i, j int) bool { return pb[i].Sides[1] < pb[j].Sides[1] }
-func (pb pending) swap(i, j int)      { pb[i], pb[j] = pb[j], pb[i] }
+func (oo openOrder) Len() int           { return len(oo) }
+func (oo openOrder) Less(i, j int) bool { return oo[i].Sides[0] < oo[j].Sides[0] }
+func (oo openOrder) Swap(i, j int)      { oo[i], oo[j] = oo[j], oo[i] }
+
+func (co closeOrder) Len() int           { return len(co) }
+func (co closeOrder) Less(i, j int) bool { return co[i].Sides[1] < co[j].Sides[1] }
+func (co closeOrder) Swap(i, j int)      { co[i], co[j] = co[j], co[i] }
+
+type pending struct{ co closeOrder }
+
+func (pb pending) append(b internal.Building) pending {
+	return pending{append(pb.co, b)}
+}
 
 func (pb pending) anyPast(x int) bool {
-	for i := range pb {
-		if pb[i].Sides[1] <= x {
+	for i := range pb.co {
+		if pb.co[i].Sides[1] <= x {
 			return true
 		}
 	}
@@ -60,18 +72,18 @@ func (pb pending) anyPast(x int) bool {
 }
 
 func (pb pending) heapify() {
-	n := len(pb)
+	n := len(pb.co)
 	for i := n/2 - 1; i >= 0; i-- {
 		pb.down(i, n)
 	}
 }
 
 func (pb pending) pop() (internal.Building, pending) {
-	i := len(pb) - 1
-	pb.swap(0, i)
+	i := len(pb.co) - 1
+	pb.co.Swap(0, i)
 	pb.down(0, i)
-	b := pb[i]
-	return b, pb[:i]
+	b := pb.co[i]
+	return b, pending{pb.co[:i]}
 }
 
 func (pb pending) down(i0, n int) {
@@ -82,13 +94,13 @@ func (pb pending) down(i0, n int) {
 			break
 		}
 		j := j1 // left child
-		if j2 := j1 + 1; j2 < n && pb.less(j2, j1) {
+		if j2 := j1 + 1; j2 < n && pb.co.Less(j2, j1) {
 			j = j2 // = 2*i + 2  // right child
 		}
-		if !pb.less(j, i) {
+		if !pb.co.Less(j, i) {
 			break
 		}
-		pb.swap(i, j)
+		pb.co.Swap(i, j)
 		i = j
 	}
 }
@@ -106,12 +118,12 @@ func (bld *builder) openBuilding(b internal.Building, pb pending) pending {
 	if y := b.Height; y > bld.cur.Y {
 		bld.stepTo(x, y)
 	}
-	return append(pb, b)
+	return pb.append(b)
 }
 
 func (bld *builder) closePast(x int, pb pending) pending {
 	pb.heapify()
-	for len(pb) > 0 && pb[0].Sides[1] <= x {
+	for len(pb.co) > 0 && pb.co[0].Sides[1] <= x {
 		var b internal.Building
 		b, pb = pb.pop()
 		bld.closeBuilding(b, pb)
@@ -121,7 +133,7 @@ func (bld *builder) closePast(x int, pb pending) pending {
 
 func (bld *builder) closeOut(pb pending) pending {
 	pb.heapify()
-	for len(pb) > 0 {
+	for len(pb.co) > 0 {
 		var b internal.Building
 		b, pb = pb.pop()
 		bld.closeBuilding(b, pb)
@@ -130,7 +142,7 @@ func (bld *builder) closeOut(pb pending) pending {
 }
 
 func (bld *builder) closeBuilding(b internal.Building, pb pending) {
-	if remHeight := maxHeightIn(pb); remHeight < bld.cur.Y {
+	if remHeight := maxHeightIn(pb.co); remHeight < bld.cur.Y {
 		bld.stepTo(b.Sides[1], remHeight)
 	}
 }
