@@ -21,12 +21,6 @@ import (
 )
 
 func TestSolve(t *testing.T) {
-	const (
-		minBuildings = 1
-		maxBuildings = 1024
-		passStep     = 128
-	)
-
 	if _, err := Solve(nil); err != nil {
 		t.Logf("Solve() failed unequivocally: %v", err)
 		t.Fail()
@@ -212,11 +206,7 @@ func TestSolve(t *testing.T) {
 		},
 	} {
 		tr := tc.run(Solve)
-		if tr.isGen() && tr.n == 0 {
-			tr.runSearchN(t, minBuildings, maxBuildings, passStep)
-		} else {
-			t.Run(tr.String(), tr.run)
-		}
+		t.Run(tr.String(), tr.runTest)
 	}
 }
 
@@ -273,55 +263,27 @@ func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) tes
 	}
 }
 
-func (tr testCaseRun) runSearchN(t *testing.T, min, max, step int) (pass bool) {
-	if tr.n = min; !t.Run(tr.String(), tr.run) {
-		return false
-	}
-
-	pass = true
-	for tr.n = max; tr.n > min; tr.n -= step {
-		if !t.Run(tr.String(), tr.run) {
-			pass = false
-			break
-		}
-	}
-	if pass {
-		return true
-	}
-
-	sanity := max - min
-	for n := min; tr.n-n > 1; {
-		sanity--
-		require.True(t, sanity > 0, "search looping infinitely")
-		lastN := tr.n
-		tr.n = lastN/2 + n/2
-		if t.Run(tr.String(), tr.run) {
-			n, tr.n = tr.n, lastN
-		}
-	}
-	t.Logf("found minimal failure case in %v", tr)
-	return false
-}
-
-func (tr testCaseRun) run(t *testing.T) {
+func (tr testCaseRun) runTest(t *testing.T) {
 	defer setupTestLogOutput(t).restore(os.Stderr)
-	if tr.gen {
+	if !tr.gen {
+		tr.doStaticTest(t)
+	} else if tr.n != 0 {
 		tr.doGenTest(t)
 	} else {
-		tr.doStaticTest(t)
+		tr.doGenSearchTest(t)
 	}
 }
 
-func grayEQ(a, b *image.Gray) bool {
-	if !a.Rect.Eq(b.Rect) {
-		return false
-	}
-	for i := range a.Pix {
-		if a.Pix[i] != b.Pix[i] {
-			return false
+func (tr testCaseRun) doStaticTest(t *testing.T) {
+	tr.points, tr.err = tr.sol(append([]internal.Building(nil), tr.data...))
+	require.NoError(t, tr.err, "expected solution to not fail")
+	if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
+		if err := tr.buildPlots(); err != nil {
+			t.Logf("unable to plot skyline: %v", err)
+		} else {
+			tr.logDebugInfo(t.Logf)
 		}
 	}
-	return true
 }
 
 func (tr testCaseRun) doGenTest(t *testing.T) {
@@ -336,16 +298,40 @@ func (tr testCaseRun) doGenTest(t *testing.T) {
 	}
 }
 
-func (tr testCaseRun) doStaticTest(t *testing.T) {
-	tr.points, tr.err = tr.sol(append([]internal.Building(nil), tr.data...))
-	require.NoError(t, tr.err, "expected solution to not fail")
-	if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
-		if err := tr.buildPlots(); err != nil {
-			t.Logf("unable to plot skyline: %v", err)
-		} else {
-			tr.logDebugInfo(t.Logf)
+func (tr testCaseRun) doGenSearchTest(t *testing.T) (pass bool) {
+	const (
+		min  = 1
+		max  = 1024
+		step = 128
+	)
+
+	if tr.n = min; !t.Run(tr.String(), tr.doGenTest) {
+		return false
+	}
+
+	pass = true
+	for tr.n = max; tr.n > min; tr.n -= step {
+		if !t.Run(tr.String(), tr.doGenTest) {
+			pass = false
+			break
 		}
 	}
+	if pass {
+		return true
+	}
+
+	sanity := max - min
+	for n := min; tr.n-n > 1; {
+		sanity--
+		require.True(t, sanity > 0, "search looping infinitely")
+		lastN := tr.n
+		tr.n = lastN/2 + n/2
+		if t.Run(tr.String(), tr.doGenTest) {
+			n, tr.n = tr.n, lastN
+		}
+	}
+	t.Logf("found minimal failure case in %v", tr)
+	return false
 }
 
 func (tr testCaseRun) logDebugInfo(logf func(string, ...interface{})) {
@@ -378,13 +364,13 @@ func (tr *testCaseRun) buildPlots() error {
 }
 
 type testLogOutput struct {
-	*testing.T
+	testing.TB
 	priorFlags int
 }
 
-func setupTestLogOutput(t *testing.T) testLogOutput {
+func setupTestLogOutput(tb testing.TB) testLogOutput {
 	var tlo testLogOutput
-	tlo.T = t
+	tlo.TB = tb
 	tlo.priorFlags = log.Flags()
 	log.SetFlags(0)
 	log.SetOutput(tlo)
@@ -563,4 +549,16 @@ func fill(gr *image.Gray, pt image.Point, where, with uint8) bool {
 		return true
 	}
 	return false
+}
+
+func grayEQ(a, b *image.Gray) bool {
+	if !a.Rect.Eq(b.Rect) {
+		return false
+	}
+	for i := range a.Pix {
+		if a.Pix[i] != b.Pix[i] {
+			return false
+		}
+	}
+	return true
 }
