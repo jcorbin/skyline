@@ -28,9 +28,15 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
+	if n := 4*len(data) + 1; n > cap(sol.bld.res) {
+		sol.bld.res = make([]image.Point, n)
+	}
+	if n := len(data); n > cap(sol.pb) {
+		sol.pb = make(pending, n)
+	}
 	sol.bld.cur = image.ZP
-	sol.bld.res = make([]image.Point, 0, 4*len(data)+1)
-	sol.pb = make(pending, 0, len(data))
+	sol.bld.res = sol.bld.res[:0]
+	sol.pb = sol.pb[:0]
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
 		sol.pb = sol.bld.openBuilding(b, sol.pb)
