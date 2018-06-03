@@ -228,9 +228,10 @@ func TestSolver_Solve(t *testing.T) {
 	}
 }
 
-func BenchmarkSolve(b *testing.B) {
+func BenchmarkSolver_Solve(b *testing.B) {
+	var sol Solver
 	for _, tc := range genTestCases {
-		b.Run(tc.String(), tc.run(Solve).runBench)
+		b.Run(tc.String(), tc.run(sol.Solve).runBench)
 	}
 }
 
