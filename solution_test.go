@@ -20,216 +20,202 @@ import (
 	"github.com/jcorbin/skyline/internal"
 )
 
+var staticTestCases = []testCase{
+	{
+		name:   "empty data",
+		data:   nil,
+		points: nil,
+	},
+
+	{
+		name: "single in the middle",
+		/* 0 2 4 6
+		 *   |-|
+		 *   | |
+		 * __| |__
+		 */
+		data: []internal.Building{
+			{Sides: [2]int{2, 4}, Height: 3},
+		},
+		points: []image.Point{
+			{X: 2, Y: 0},
+			{X: 2, Y: 3},
+			{X: 4, Y: 3},
+			{X: 4, Y: 0},
+		},
+	},
+
+	{
+		name: "twin towers",
+		/* 0 2 4 6 8 a
+		 *   |-| |-|
+		 *   | | | |
+		 * __| |_| |__
+		 */
+		data: []internal.Building{
+			{Sides: [2]int{2, 4}, Height: 3},
+			{Sides: [2]int{6, 8}, Height: 3},
+		},
+		points: []image.Point{
+			{X: 2, Y: 0},
+			{X: 2, Y: 3},
+			{X: 4, Y: 3},
+			{X: 4, Y: 0},
+
+			{X: 6, Y: 0},
+			{X: 6, Y: 3},
+			{X: 8, Y: 3},
+			{X: 8, Y: 0},
+		},
+	},
+
+	{
+		name: "joined towers",
+		/* 0 2 4 6 8 a c e
+		 *   |---| |---|
+		 *   |   | |   |
+		 *   |   | |   |
+		 *   | ..|-|.. |
+		 * __| .     . |__
+		 */
+		data: []internal.Building{
+			{Sides: [2]int{2, 6}, Height: 5},
+			{Sides: [2]int{8, 12}, Height: 5},
+			{Sides: [2]int{4, 10}, Height: 3},
+		},
+		points: []image.Point{
+			{X: 2, Y: 0},
+			{X: 2, Y: 5},
+			{X: 6, Y: 5},
+
+			{X: 6, Y: 3},
+			{X: 8, Y: 3},
+
+			{X: 8, Y: 5},
+			{X: 12, Y: 5},
+			{X: 12, Y: 0},
+		},
+	},
+
+	{
+		name: "L",
+		/*
+		 * 0 2 4 6 8 a c e
+		 *   |---|
+		 *   | ..|__
+		 * __| . . |__
+		 */
+		data: []internal.Building{
+			{Sides: [2]int{2, 6}, Height: 3},
+			{Sides: [2]int{4, 8}, Height: 1},
+		},
+		points: []image.Point{
+			{X: 2, Y: 0},
+			{X: 2, Y: 3},
+			{X: 6, Y: 3},
+
+			{X: 6, Y: 1},
+
+			{X: 8, Y: 1},
+			{X: 8, Y: 0},
+		},
+	},
+
+	{
+		name: "stair",
+		/*
+		 * 0 2 4 6 8 a c e
+		 *   |---|
+		 *   |   |
+		 *   | ..|---|
+		 *   | . . ..|__
+		 * __| . . . . |__
+		 */
+		data: []internal.Building{
+			{Sides: [2]int{2, 6}, Height: 5},
+			{Sides: [2]int{4, 10}, Height: 3},
+			{Sides: [2]int{8, 12}, Height: 1},
+		},
+		points: []image.Point{
+			{X: 2, Y: 0},
+			{X: 2, Y: 5},
+			{X: 6, Y: 5},
+
+			{X: 6, Y: 3},
+			{X: 10, Y: 3},
+			{X: 10, Y: 1},
+
+			{X: 12, Y: 1},
+			{X: 12, Y: 0},
+		},
+	},
+
+	{
+		name: "mirror stair",
+		/*
+		 * 0 2 4 6 8 a c e
+		 *         |---|
+		 *         |   |
+		 *     |---|.. |
+		 *   __|.. . . |
+		 * __| . . . . |__
+		 */
+		data: []internal.Building{
+			{Sides: [2]int{2, 6}, Height: 1},
+			{Sides: [2]int{4, 10}, Height: 3},
+			{Sides: [2]int{8, 12}, Height: 5},
+		},
+		points: []image.Point{
+			{X: 2, Y: 0},
+			{X: 2, Y: 1},
+			{X: 4, Y: 1},
+
+			{X: 4, Y: 3},
+
+			{X: 8, Y: 3},
+			{X: 8, Y: 5},
+
+			{X: 12, Y: 5},
+			{X: 12, Y: 0},
+		},
+	},
+}
+
+var genTestCases = []testCase{
+	{
+		seed: 0,
+		w:    16,
+		h:    10,
+	},
+	{
+		seed: 0,
+		w:    32,
+		h:    32,
+	},
+	{
+		seed: 0,
+		w:    64,
+		h:    64,
+	},
+}
+
 func TestSolve(t *testing.T) {
 	if _, err := Solve(nil); err != nil {
 		t.Logf("Solve() failed unequivocally: %v", err)
 		t.Fail()
 		return
 	}
-
-	for _, tc := range []testCase{
-		// basic (manual) test cases
-		{
-			name:   "empty data",
-			data:   nil,
-			points: nil,
-		},
-
-		{
-			name: "single in the middle",
-			/* 0 2 4 6
-			 *   |-|
-			 *   | |
-			 * __| |__
-			 */
-			data: []internal.Building{
-				{Sides: [2]int{2, 4}, Height: 3},
-			},
-			points: []image.Point{
-				{X: 2, Y: 0},
-				{X: 2, Y: 3},
-				{X: 4, Y: 3},
-				{X: 4, Y: 0},
-			},
-		},
-
-		{
-			name: "twin towers",
-			/* 0 2 4 6 8 a
-			 *   |-| |-|
-			 *   | | | |
-			 * __| |_| |__
-			 */
-			data: []internal.Building{
-				{Sides: [2]int{2, 4}, Height: 3},
-				{Sides: [2]int{6, 8}, Height: 3},
-			},
-			points: []image.Point{
-				{X: 2, Y: 0},
-				{X: 2, Y: 3},
-				{X: 4, Y: 3},
-				{X: 4, Y: 0},
-
-				{X: 6, Y: 0},
-				{X: 6, Y: 3},
-				{X: 8, Y: 3},
-				{X: 8, Y: 0},
-			},
-		},
-
-		{
-			name: "joined towers",
-			/* 0 2 4 6 8 a c e
-			 *   |---| |---|
-			 *   |   | |   |
-			 *   |   | |   |
-			 *   | ..|-|.. |
-			 * __| .     . |__
-			 */
-			data: []internal.Building{
-				{Sides: [2]int{2, 6}, Height: 5},
-				{Sides: [2]int{8, 12}, Height: 5},
-				{Sides: [2]int{4, 10}, Height: 3},
-			},
-			points: []image.Point{
-				{X: 2, Y: 0},
-				{X: 2, Y: 5},
-				{X: 6, Y: 5},
-
-				{X: 6, Y: 3},
-				{X: 8, Y: 3},
-
-				{X: 8, Y: 5},
-				{X: 12, Y: 5},
-				{X: 12, Y: 0},
-			},
-		},
-
-		{
-			name: "L",
-			/*
-			 * 0 2 4 6 8 a c e
-			 *   |---|
-			 *   | ..|__
-			 * __| . . |__
-			 */
-			data: []internal.Building{
-				{Sides: [2]int{2, 6}, Height: 3},
-				{Sides: [2]int{4, 8}, Height: 1},
-			},
-			points: []image.Point{
-				{X: 2, Y: 0},
-				{X: 2, Y: 3},
-				{X: 6, Y: 3},
-
-				{X: 6, Y: 1},
-
-				{X: 8, Y: 1},
-				{X: 8, Y: 0},
-			},
-		},
-
-		{
-			name: "stair",
-			/*
-			 * 0 2 4 6 8 a c e
-			 *   |---|
-			 *   |   |
-			 *   | ..|---|
-			 *   | . . ..|__
-			 * __| . . . . |__
-			 */
-			data: []internal.Building{
-				{Sides: [2]int{2, 6}, Height: 5},
-				{Sides: [2]int{4, 10}, Height: 3},
-				{Sides: [2]int{8, 12}, Height: 1},
-			},
-			points: []image.Point{
-				{X: 2, Y: 0},
-				{X: 2, Y: 5},
-				{X: 6, Y: 5},
-
-				{X: 6, Y: 3},
-				{X: 10, Y: 3},
-				{X: 10, Y: 1},
-
-				{X: 12, Y: 1},
-				{X: 12, Y: 0},
-			},
-		},
-
-		{
-			name: "mirror stair",
-			/*
-			 * 0 2 4 6 8 a c e
-			 *         |---|
-			 *         |   |
-			 *     |---|.. |
-			 *   __|.. . . |
-			 * __| . . . . |__
-			 */
-			data: []internal.Building{
-				{Sides: [2]int{2, 6}, Height: 1},
-				{Sides: [2]int{4, 10}, Height: 3},
-				{Sides: [2]int{8, 12}, Height: 5},
-			},
-			points: []image.Point{
-				{X: 2, Y: 0},
-				{X: 2, Y: 1},
-				{X: 4, Y: 1},
-
-				{X: 4, Y: 3},
-
-				{X: 8, Y: 3},
-				{X: 8, Y: 5},
-
-				{X: 12, Y: 5},
-				{X: 12, Y: 0},
-			},
-		},
-
-		// generative test cases
-		{
-			seed: 0,
-			w:    16,
-			h:    10,
-		},
-		{
-			seed: 0,
-			w:    32,
-			h:    32,
-		},
-		{
-			seed: 0,
-			w:    64,
-			h:    64,
-		},
-	} {
-		tr := tc.run(Solve)
-		t.Run(tr.String(), tr.runTest)
+	for _, tc := range staticTestCases {
+		t.Run(tc.String(), tc.run(Solve).runTest)
+	}
+	for _, tc := range genTestCases {
+		t.Run(tc.String(), tc.run(Solve).runTest)
 	}
 }
 
 func BenchmarkSolve(b *testing.B) {
-	for _, tc := range []testCase{
-		{
-			seed: 0,
-			w:    16,
-			h:    10,
-		},
-		{
-			seed: 0,
-			w:    32,
-			h:    32,
-		},
-		{
-			seed: 0,
-			w:    64,
-			h:    64,
-		},
-	} {
-		tr := tc.run(Solve)
-		b.Run(tr.String(), tr.runBench)
+	for _, tc := range genTestCases {
+		b.Run(tc.String(), tc.run(Solve).runBench)
 	}
 }
 
