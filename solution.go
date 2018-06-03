@@ -1,7 +1,6 @@
 package main
 
 import (
-	"container/heap"
 	"image"
 	"sort"
 
@@ -18,32 +17,59 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 	pb := makePending(len(data))
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
-		bld = bld.openBuilding(b, &pb)
+		bld, pb = bld.openBuilding(b, pb)
 	}
-	bld = bld.closeOut(&pb)
+	bld, pb = bld.closeOut(pb)
 	return bld.res, nil
 }
 
-type pending struct{ bs []internal.Building }
+type pending []internal.Building
 
-func makePending(cap int) pending      { return pending{make([]internal.Building, 0, cap)} }
-func (pb pending) Len() int            { return len(pb.bs) }
-func (pb pending) Less(i, j int) bool  { return pb.bs[i].Sides[1] < pb.bs[j].Sides[1] }
-func (pb pending) Swap(i, j int)       { pb.bs[i], pb.bs[j] = pb.bs[j], pb.bs[i] }
-func (pb *pending) Push(x interface{}) { pb.bs = append(pb.bs, x.(internal.Building)) }
-func (pb *pending) Pop() interface{} {
-	i := len(pb.bs) - 1
-	b := pb.bs[i]
-	pb.bs = pb.bs[:i]
-	return b
-}
-func (pb pending) AnyPast(x int) bool {
-	for i := range pb.bs {
-		if pb.bs[i].Sides[1] <= x {
+func makePending(cap int) pending     { return make(pending, 0, cap) }
+func (pb pending) less(i, j int) bool { return pb[i].Sides[1] < pb[j].Sides[1] }
+func (pb pending) swap(i, j int)      { pb[i], pb[j] = pb[j], pb[i] }
+
+func (pb pending) anyPast(x int) bool {
+	for i := range pb {
+		if pb[i].Sides[1] <= x {
 			return true
 		}
 	}
 	return false
+}
+
+func (pb pending) heapify() {
+	n := len(pb)
+	for i := n/2 - 1; i >= 0; i-- {
+		pb.down(i, n)
+	}
+}
+
+func (pb pending) pop() (internal.Building, pending) {
+	i := len(pb) - 1
+	pb.swap(0, i)
+	pb.down(0, i)
+	b := pb[i]
+	return b, pb[:i]
+}
+
+func (pb pending) down(i0, n int) {
+	i := i0
+	for {
+		j1 := 2*i + 1
+		if j1 >= n || j1 < 0 { // j1 < 0 after int overflow
+			break
+		}
+		j := j1 // left child
+		if j2 := j1 + 1; j2 < n && pb.less(j2, j1) {
+			j = j2 // = 2*i + 2  // right child
+		}
+		if !pb.less(j, i) {
+			break
+		}
+		pb.swap(i, j)
+		i = j
+	}
 }
 
 type builder struct {
@@ -57,40 +83,39 @@ func makeBuilder(cap int) builder {
 	}
 }
 
-func (bld builder) openBuilding(b internal.Building, pb *pending) builder {
+func (bld builder) openBuilding(b internal.Building, pb pending) (builder, pending) {
 	x := b.Sides[0]
-	if pb.AnyPast(x) {
-		bld = bld.closePast(x, pb)
+	if pb.anyPast(x) {
+		bld, pb = bld.closePast(x, pb)
 	}
 	if y := b.Height; y > bld.cur.Y {
 		bld = bld.stepTo(x, y)
 	}
-	pb.bs = append(pb.bs, b)
-	return bld
+	return bld, append(pb, b)
 }
 
-func (bld builder) closePast(x int, pb *pending) builder {
-	heap.Init(pb)
-	for pb.Len() > 0 && pb.bs[0].Sides[1] <= x {
-		b := pb.bs[0]
-		heap.Pop(pb)
+func (bld builder) closePast(x int, pb pending) (builder, pending) {
+	pb.heapify()
+	for len(pb) > 0 && pb[0].Sides[1] <= x {
+		var b internal.Building
+		b, pb = pb.pop()
 		bld = bld.closeBuilding(b, pb)
 	}
-	return bld
+	return bld, pb
 }
 
-func (bld builder) closeOut(pb *pending) builder {
-	heap.Init(pb)
-	for pb.Len() > 0 {
-		b := pb.bs[0]
-		heap.Pop(pb)
+func (bld builder) closeOut(pb pending) (builder, pending) {
+	pb.heapify()
+	for len(pb) > 0 {
+		var b internal.Building
+		b, pb = pb.pop()
 		bld = bld.closeBuilding(b, pb)
 	}
-	return bld
+	return bld, pb
 }
 
-func (bld builder) closeBuilding(b internal.Building, pb *pending) builder {
-	if remHeight := maxHeightIn(pb.bs); remHeight < bld.cur.Y {
+func (bld builder) closeBuilding(b internal.Building, pb pending) builder {
+	if remHeight := maxHeightIn(pb); remHeight < bld.cur.Y {
 		bld = bld.stepTo(b.Sides[1], remHeight)
 	}
 	return bld
