@@ -210,13 +210,12 @@ func TestSolve(t *testing.T) {
 			h:    64,
 		},
 	} {
-		t.Run(tc.String(), func(t *testing.T) {
-			tr := tc.run(Solve)
-			if tr.isGen() && tr.n == 0 {
-				tr = tr.searchN(t, minBuildings, maxBuildings)
-			}
-			tr.run(t)
-		})
+		tr := tc.run(Solve)
+		if tr.isGen() && tr.n == 0 {
+			tr.runSearchN(t, minBuildings, maxBuildings)
+		} else {
+			t.Run(tr.String(), tr.run)
+		}
 	}
 }
 
@@ -273,36 +272,25 @@ func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) tes
 	}
 }
 
-func (tr testCaseRun) searchN(t *testing.T, min, max int) testCaseRun {
-	if tr.n = min; tr.fails() {
-		t.Logf("found minimal failure @n=%v", tr.n)
-		return tr
+func (tr testCaseRun) runSearchN(t *testing.T, min, max int) (pass bool) {
+	if tr.n = min; !t.Run(tr.String(), tr.run) {
+		return false
 	}
-	if tr.n = max; !tr.fails() {
-		return tr
+	if tr.n = max; t.Run(tr.String(), tr.run) {
+		return true
 	}
-	t.Logf("fail @n=%v", tr.n)
 	sanity := max - min
 	for n := min; tr.n-n > 1; {
 		sanity--
 		require.True(t, sanity > 0, "search looping infinitely")
 		lastN := tr.n
 		tr.n = lastN/2 + n/2
-		if tr.fails() {
-			t.Logf("fail @n=%v", tr.n)
-		} else {
-			t.Logf("pass @n=%v", tr.n)
+		if t.Run(tr.String(), tr.run) {
 			n, tr.n = tr.n, lastN
 		}
 	}
-	t.Logf("found minimal failure @n=%v", tr.n)
-	return tr
-}
-
-func (tr testCaseRun) fails() bool {
-	var ft testing.T
-	tr.run(&ft)
-	return ft.Failed()
+	t.Logf("found minimal failure case in %v", tr)
+	return false
 }
 
 func (tr testCaseRun) run(t *testing.T) {
