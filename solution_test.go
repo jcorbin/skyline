@@ -251,7 +251,6 @@ type testCaseRun struct {
 	rng *rand.Rand
 
 	points []image.Point
-	err    error
 
 	buildingPlot, skylinePlot *image.Gray
 	expectedSky, actualSky    *image.Gray
@@ -287,8 +286,8 @@ func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) tes
 }
 
 func (tr *testCaseRun) solve(data []internal.Building) (err error) {
-	tr.points, tr.err = tr.sol(data)
-	return tr.err
+	tr.points, err = tr.sol(data)
+	return err
 }
 
 func (tr testCaseRun) runTest(t *testing.T) {
