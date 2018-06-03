@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/heap"
 	"image"
 	"sort"
 
@@ -14,20 +15,28 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 		return nil, nil
 	}
 	bld := makeBuilder(1 + len(data)*4)
-	pb := make(pending, 0, len(data))
+	pb := makePending(len(data))
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
-		bld, pb = bld.openBuilding(b, pb)
+		bld = bld.openBuilding(b, &pb)
 	}
-	bld, pb = bld.closeOut(pb)
+	bld = bld.closeOut(&pb)
 	return bld.res, nil
 }
 
-type pending []internal.Building
+type pending struct{ bs []internal.Building }
 
-func (pb pending) Len() int           { return len(pb) }
-func (pb pending) Less(i, j int) bool { return pb[i].Sides[1] < pb[j].Sides[1] }
-func (pb pending) Swap(i, j int)      { pb[i], pb[j] = pb[j], pb[i] }
+func makePending(cap int) pending      { return pending{make([]internal.Building, 0, cap)} }
+func (pb pending) Len() int            { return len(pb.bs) }
+func (pb pending) Less(i, j int) bool  { return pb.bs[i].Sides[1] < pb.bs[j].Sides[1] }
+func (pb pending) Swap(i, j int)       { pb.bs[i], pb.bs[j] = pb.bs[j], pb.bs[i] }
+func (pb *pending) Push(x interface{}) { pb.bs = append(pb.bs, x.(internal.Building)) }
+func (pb *pending) Pop() interface{} {
+	i := len(pb.bs) - 1
+	b := pb.bs[i]
+	pb.bs = pb.bs[:i]
+	return b
+}
 
 type builder struct {
 	cur image.Point
@@ -40,33 +49,35 @@ func makeBuilder(cap int) builder {
 	}
 }
 
-func (bld builder) openBuilding(b internal.Building, pb pending) (builder, pending) {
-	bld, pb = bld.closePast(b.Sides[0], pb)
+func (bld builder) openBuilding(b internal.Building, pb *pending) builder {
+	bld = bld.closePast(b.Sides[0], pb)
 	if y := b.Height; y > bld.cur.Y {
 		bld = bld.stepTo(b.Sides[0], y)
 	}
-	pb = append(pb, b)
-	sort.Sort(pb)
-	return bld, pb
+	heap.Push(pb, b)
+	return bld
 }
 
-func (bld builder) closePast(x int, pb pending) (builder, pending) {
-	i := 0
-	for ; i < len(pb) && pb[i].Sides[1] <= x; i++ {
-		bld = bld.closeBuilding(pb[i], pb[i+1:])
+func (bld builder) closePast(x int, pb *pending) builder {
+	for pb.Len() > 0 && pb.bs[0].Sides[1] <= x {
+		b := pb.bs[0]
+		heap.Pop(pb)
+		bld = bld.closeBuilding(b, pb)
 	}
-	return bld, pb[:copy(pb, pb[i:])]
+	return bld
 }
 
-func (bld builder) closeOut(pb pending) (builder, pending) {
-	for i := 0; i < len(pb); i++ {
-		bld = bld.closeBuilding(pb[i], pb[i+1:])
+func (bld builder) closeOut(pb *pending) builder {
+	for pb.Len() > 0 {
+		b := pb.bs[0]
+		heap.Pop(pb)
+		bld = bld.closeBuilding(b, pb)
 	}
-	return bld, pb[:0]
+	return bld
 }
 
-func (bld builder) closeBuilding(b internal.Building, rem []internal.Building) builder {
-	if remHeight := maxHeightIn(rem); remHeight < bld.cur.Y {
+func (bld builder) closeBuilding(b internal.Building, pb *pending) builder {
+	if remHeight := maxHeightIn(pb.bs); remHeight < bld.cur.Y {
 		bld = bld.stepTo(b.Sides[1], remHeight)
 	}
 	return bld
