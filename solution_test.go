@@ -213,6 +213,21 @@ func TestSolve(t *testing.T) {
 	}
 }
 
+func TestSolver_Solve(t *testing.T) {
+	var sol Solver
+	if _, err := sol.Solve(nil); err != nil {
+		t.Logf("sol.Solve() failed unequivocally: %v", err)
+		t.Fail()
+		return
+	}
+	for _, tc := range staticTestCases {
+		t.Run(tc.String(), tc.run(sol.Solve).runTest)
+	}
+	for _, tc := range genTestCases {
+		t.Run(tc.String(), tc.run(sol.Solve).runTest)
+	}
+}
+
 type testCase struct {
 	name   string
 	data   []internal.Building
