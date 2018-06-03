@@ -28,8 +28,9 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
-	sol.bld = makeBuilder(1 + len(data)*4)
-	sol.pb = makePending(len(data))
+	sol.bld.cur = image.ZP
+	sol.bld.res = make([]image.Point, 0, 4*len(data)+1)
+	sol.pb = make(pending, 0, len(data))
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
 		sol.pb = sol.bld.openBuilding(b, sol.pb)
@@ -40,7 +41,6 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 
 type pending []internal.Building
 
-func makePending(cap int) pending     { return make(pending, 0, cap) }
 func (pb pending) less(i, j int) bool { return pb[i].Sides[1] < pb[j].Sides[1] }
 func (pb pending) swap(i, j int)      { pb[i], pb[j] = pb[j], pb[i] }
 
@@ -90,12 +90,6 @@ func (pb pending) down(i0, n int) {
 type builder struct {
 	cur image.Point
 	res []image.Point
-}
-
-func makeBuilder(cap int) builder {
-	return builder{
-		res: make([]image.Point, 0, cap),
-	}
 }
 
 func (bld *builder) openBuilding(b internal.Building, pb pending) pending {
