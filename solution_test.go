@@ -24,6 +24,7 @@ func TestSolve(t *testing.T) {
 	const (
 		minBuildings = 1
 		maxBuildings = 1024
+		passStep     = 128
 	)
 
 	if _, err := Solve(nil); err != nil {
@@ -212,7 +213,7 @@ func TestSolve(t *testing.T) {
 	} {
 		tr := tc.run(Solve)
 		if tr.isGen() && tr.n == 0 {
-			tr.runSearchN(t, minBuildings, maxBuildings)
+			tr.runSearchN(t, minBuildings, maxBuildings, passStep)
 		} else {
 			t.Run(tr.String(), tr.run)
 		}
@@ -272,13 +273,22 @@ func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) tes
 	}
 }
 
-func (tr testCaseRun) runSearchN(t *testing.T, min, max int) (pass bool) {
+func (tr testCaseRun) runSearchN(t *testing.T, min, max, step int) (pass bool) {
 	if tr.n = min; !t.Run(tr.String(), tr.run) {
 		return false
 	}
-	if tr.n = max; t.Run(tr.String(), tr.run) {
+
+	pass = true
+	for tr.n = max; tr.n > min; tr.n -= step {
+		if !t.Run(tr.String(), tr.run) {
+			pass = false
+			break
+		}
+	}
+	if pass {
 		return true
 	}
+
 	sanity := max - min
 	for n := min; tr.n-n > 1; {
 		sanity--
