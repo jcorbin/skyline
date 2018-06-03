@@ -29,43 +29,49 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	bld := builder{
 		res: make([]image.Point, 0, 1+len(data)*4),
 	}
-	pending := make([]internal.Building, 0, len(data))
+	pb := make(pending, 0, len(data))
 	sort.Slice(data, func(i, j int) bool { return data[i].Sides[0] < data[j].Sides[0] })
 	for _, b := range data {
-		bld, pending = bld.openBuilding(b, pending)
+		bld, pb = bld.openBuilding(b, pb)
 	}
-	bld, pending = bld.closeOut(pending)
+	bld, pb = bld.closeOut(pb)
 	return bld.res, nil
 }
+
+type pending []internal.Building
+
+func (pb pending) Len() int           { return len(pb) }
+func (pb pending) Less(i, j int) bool { return pb[i].Sides[1] < pb[j].Sides[1] }
+func (pb pending) Swap(i, j int)      { pb[i], pb[j] = pb[j], pb[i] }
 
 type builder struct {
 	cur image.Point
 	res []image.Point
 }
 
-func (bld builder) openBuilding(b internal.Building, pending []internal.Building) (builder, []internal.Building) {
-	bld, pending = bld.closePast(b.Sides[0], pending)
+func (bld builder) openBuilding(b internal.Building, pb pending) (builder, pending) {
+	bld, pb = bld.closePast(b.Sides[0], pb)
 	if y := b.Height; y > bld.cur.Y {
 		bld = bld.stepTo(b.Sides[0], y)
 	}
-	pending = append(pending, b)
-	sort.Slice(pending, func(i, j int) bool { return pending[i].Sides[1] < pending[j].Sides[1] })
-	return bld, pending
+	pb = append(pb, b)
+	sort.Sort(pb)
+	return bld, pb
 }
 
-func (bld builder) closePast(x int, pending []internal.Building) (builder, []internal.Building) {
+func (bld builder) closePast(x int, pb pending) (builder, pending) {
 	i := 0
-	for ; i < len(pending) && pending[i].Sides[1] <= x; i++ {
-		bld = bld.closeBuilding(pending[i], pending[i+1:])
+	for ; i < len(pb) && pb[i].Sides[1] <= x; i++ {
+		bld = bld.closeBuilding(pb[i], pb[i+1:])
 	}
-	return bld, pending[:copy(pending, pending[i:])]
+	return bld, pb[:copy(pb, pb[i:])]
 }
 
-func (bld builder) closeOut(pending []internal.Building) (builder, []internal.Building) {
-	for i := 0; i < len(pending); i++ {
-		bld = bld.closeBuilding(pending[i], pending[i+1:])
+func (bld builder) closeOut(pb pending) (builder, pending) {
+	for i := 0; i < len(pb); i++ {
+		bld = bld.closeBuilding(pb[i], pb[i+1:])
 	}
-	return bld, pending[:0]
+	return bld, pb[:0]
 }
 
 func (bld builder) closeBuilding(b internal.Building, rem []internal.Building) builder {
