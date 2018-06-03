@@ -210,7 +210,7 @@ func TestSolve(t *testing.T) {
 			h:    64,
 		},
 	} {
-		t.Run(tc.desc(), func(t *testing.T) {
+		t.Run(tc.String(), func(t *testing.T) {
 			tr := tc.run(Solve)
 			if tr.isGen() && tr.n == 0 {
 				tr = tr.searchN(t, minBuildings, maxBuildings)
@@ -251,7 +251,7 @@ func (tc testCase) isGen() bool {
 	return tc.w > 0 && tc.h > 0
 }
 
-func (tc testCase) desc() string {
+func (tc testCase) String() string {
 	if tc.name != "" {
 		// manually named case
 		return tc.name
