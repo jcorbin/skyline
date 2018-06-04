@@ -80,20 +80,29 @@ func (pb pending) append(b internal.Building) pending {
 		pb.co[i] = b
 	}
 	pb.rh = append(pb.rh, 0)
-	pb.recalcRH()
-	return pb
-}
+	if i != n {
+		copy(pb.rh[i+1:], pb.rh[i:])
+		pb.rh[i] = pb.rh[i+1]
+		// if i--; i >= 0 { pb.rh[i+1] = pb.rh[i] }
+	} else {
+		i--
+	}
 
-func (pb pending) recalcRH() {
+	for i--; i >= 0 && b.Height > pb.rh[i]; i-- {
+		pb.rh[i] = b.Height
+	}
+
+	// TODO this should be the same, but it's not
 	h := 0
 	j := len(pb.rh) - 1
-	for ; j > 0; j-- {
+	for ; j >= 0; j-- {
 		pb.rh[j] = h
 		if jh := pb.co[j].Height; h < jh {
 			h = jh
 		}
 	}
-	pb.rh[j] = h
+
+	return pb
 }
 
 func (pb pending) anyPast(x int) bool { return len(pb.co) > 0 && pb.co[0].Sides[1] <= x }
