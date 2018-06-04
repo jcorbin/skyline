@@ -32,7 +32,7 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		sol.bld.res = make([]image.Point, n)
 	}
 	if n := len(data); n > cap(sol.pb.co) {
-		sol.pb = pending{make(closeOrder, n)}
+		sol.pb = pending{co: make(closeOrder, n)}
 	}
 	sol.bld.cur = image.ZP
 	sol.bld.res = sol.bld.res[:0]
@@ -56,20 +56,20 @@ func (co closeOrder) Len() int           { return len(co) }
 func (co closeOrder) Less(i, j int) bool { return co[i].Sides[1] < co[j].Sides[1] }
 func (co closeOrder) Swap(i, j int)      { co[i], co[j] = co[j], co[i] }
 
-type pending struct{ co closeOrder }
+type pending struct {
+	co closeOrder
+	mx int
+}
 
 func (pb pending) append(b internal.Building) pending {
-	return pending{append(pb.co, b)}
+	pb.co = append(pb.co, b)
+	if pb.mx == 0 || b.Sides[1] < pb.mx {
+		pb.mx = b.Sides[1]
+	}
+	return pb
 }
 
-func (pb pending) anyPast(x int) bool {
-	for i := range pb.co {
-		if pb.co[i].Sides[1] <= x {
-			return true
-		}
-	}
-	return false
-}
+func (pb pending) anyPast(x int) bool { return pb.mx <= x }
 
 func (pb pending) heapify() {
 	n := len(pb.co)
@@ -79,11 +79,16 @@ func (pb pending) heapify() {
 }
 
 func (pb pending) pop() (internal.Building, pending) {
-	i := len(pb.co) - 1
-	pb.co.Swap(0, i)
-	pb.down(0, i)
-	b := pb.co[i]
-	return b, pending{pb.co[:i]}
+	if i := len(pb.co) - 1; i > 0 {
+		pb.co.Swap(0, i)
+		pb.down(0, i)
+		b := pb.co[i]
+		pb.mx = pb.co[0].Sides[1]
+		pb.co = pb.co[:i]
+		return b, pb
+	}
+	b := pb.co[0]
+	return b, pending{co: pb.co[:0]}
 }
 
 func (pb pending) down(i0, n int) {
