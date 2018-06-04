@@ -107,20 +107,28 @@ func appendRH(i int, x2, h, op, rh []int) (_, _ []int) {
 	nop := len(op)
 	opi := sort.Search(nop, func(opi int) bool { return x2[op[opi]] > x2[i] })
 	op, rh = append(op, i), append(rh, 0)
+	mh := rh[opi]
 
 	if opi != nop {
+		if oh := h[op[opi]]; mh < oh {
+			mh = oh
+		}
 		copy(op[opi+1:], op[opi:])
+		copy(rh[opi+1:], rh[opi:])
 		op[opi] = i
+		rh[opi] = mh
 	}
 
-	// TODO should be able to do this with a partial update
-	mh := 0
-	for opi := len(op) - 1; opi > 0; {
+	for opi > 0 {
 		if oh := h[op[opi]]; mh < oh {
 			mh = oh
 		}
 		opi--
-		rh[opi] = mh
+		if mh > rh[opi] {
+			rh[opi] = mh
+		} else {
+			break
+		}
 	}
 
 	return op, rh
