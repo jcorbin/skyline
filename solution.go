@@ -98,7 +98,7 @@ func (bld *builder) openBuilding(b internal.Building, pb pending) pending {
 func (bld *builder) closePast(x int, pb pending) pending {
 	i := 0
 	for ; i < len(pb.co) && pb.co[i].Sides[1] <= x; i++ {
-		bld.closeBuilding(pb.co[i], pending{co: pb.co[i+1:]})
+		bld.closeBuilding(i, pb)
 	}
 	pb.co = pb.co[:copy(pb.co, pb.co[i:])]
 	return pb
@@ -106,15 +106,15 @@ func (bld *builder) closePast(x int, pb pending) pending {
 
 func (bld *builder) closeOut(pb pending) pending {
 	for i := 0; i < len(pb.co); i++ {
-		bld.closeBuilding(pb.co[i], pending{co: pb.co[i+1:]})
+		bld.closeBuilding(i, pb)
 	}
 	pb.co = pb.co[:0]
 	return pb
 }
 
-func (bld *builder) closeBuilding(b internal.Building, pb pending) {
-	if remHeight := maxHeightIn(pb.co); remHeight < bld.cur.Y {
-		bld.stepTo(b.Sides[1], remHeight)
+func (bld *builder) closeBuilding(i int, pb pending) {
+	if remHeight := maxHeightIn(pb.co[i+1:]); remHeight < bld.cur.Y {
+		bld.stepTo(pb.co[i].Sides[1], remHeight)
 	}
 }
 
