@@ -310,8 +310,10 @@ func (tr testCaseRun) doStaticTest(t *testing.T) {
 	data := append([]internal.Building(nil), tr.data...)
 	require.NoError(t, tr.solve(data), "expected solution to not fail")
 	if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
+		t.Logf("building data: %v", tr.data)
+		t.Logf("solution points: %v", tr.points)
 		assert.NoError(t, tr.buildPlots(), "unable to plot skyline")
-		tr.logDebugInfo(t.Logf)
+		tr.dumpPlots(t.Logf)
 	}
 }
 
@@ -324,7 +326,9 @@ func (tr testCaseRun) doGenTest(t *testing.T) {
 	ok = ok && grayEQ(tr.expectedSky, tr.actualSky)
 	if !ok {
 		t.Fail()
-		tr.logDebugInfo(t.Logf)
+		t.Logf("building data: %v", tr.data)
+		t.Logf("solution points: %v", tr.points)
+		tr.dumpPlots(t.Logf)
 	}
 }
 
@@ -402,9 +406,7 @@ func (tr testCaseRun) doGenScaleBench(b *testing.B) {
 	}
 }
 
-func (tr testCaseRun) logDebugInfo(logf func(string, ...interface{})) {
-	logf("building data: %v", tr.data)
-	logf("solution points: %v", tr.points)
+func (tr testCaseRun) dumpPlots(logf func(string, ...interface{})) {
 	dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
 	if tr.buildingPlot != nil && tr.skylinePlot != nil {
 		logf("plots:\n%s", strings.Join(sideBySide(
