@@ -79,15 +79,6 @@ func (pb pending) append(b internal.Building) pending {
 
 func (pb pending) anyPast(x int) bool { return len(pb.co) > 0 && pb.co[0].Sides[1] <= x }
 
-func (pb pending) pop() (internal.Building, pending) {
-	if len(pb.co) == 0 {
-		panic("pop empty pending buildings")
-	}
-	b := pb.co[0]
-	pb.co = pb.co[:copy(pb.co, pb.co[1:])]
-	return b, pb
-}
-
 type builder struct {
 	cur image.Point
 	res []image.Point
@@ -105,20 +96,19 @@ func (bld *builder) openBuilding(b internal.Building, pb pending) pending {
 }
 
 func (bld *builder) closePast(x int, pb pending) pending {
-	for len(pb.co) > 0 && pb.co[0].Sides[1] <= x {
-		var b internal.Building
-		b, pb = pb.pop()
-		bld.closeBuilding(b, pb)
+	i := 0
+	for ; i < len(pb.co) && pb.co[i].Sides[1] <= x; i++ {
+		bld.closeBuilding(pb.co[i], pending{co: pb.co[i+1:]})
 	}
+	pb.co = pb.co[:copy(pb.co, pb.co[i:])]
 	return pb
 }
 
 func (bld *builder) closeOut(pb pending) pending {
-	for len(pb.co) > 0 {
-		var b internal.Building
-		b, pb = pb.pop()
-		bld.closeBuilding(b, pb)
+	for i := 0; i < len(pb.co); i++ {
+		bld.closeBuilding(pb.co[i], pending{co: pb.co[i+1:]})
 	}
+	pb.co = pb.co[:0]
 	return pb
 }
 
