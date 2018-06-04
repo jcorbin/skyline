@@ -408,16 +408,20 @@ func (tr testCaseRun) logDebugInfo(logf func(string, ...interface{})) {
 	logf("building data: %v", tr.data)
 	logf("solution points: %v", tr.points)
 	dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
-	logf("plots:\n%s", strings.Join(sideBySide(
-		"building boxes", "skyline",
-		dump(tr.buildingPlot, dumpRunes),
-		dump(tr.skylinePlot, dumpRunes),
-	), "\n"))
-	logf("skies:\n%s", strings.Join(sideBySide(
-		"expected", "actual",
-		dump(tr.expectedSky, dumpRunes),
-		dump(tr.actualSky, dumpRunes),
-	), "\n"))
+	if tr.buildingPlot != nil && tr.skylinePlot != nil {
+		logf("plots:\n%s", strings.Join(sideBySide(
+			"building boxes", "skyline",
+			dump(tr.buildingPlot, dumpRunes),
+			dump(tr.skylinePlot, dumpRunes),
+		), "\n"))
+	}
+	if tr.expectedSky != nil && tr.actualSky != nil {
+		logf("skies:\n%s", strings.Join(sideBySide(
+			"expected", "actual",
+			dump(tr.expectedSky, dumpRunes),
+			dump(tr.actualSky, dumpRunes),
+		), "\n"))
+	}
 }
 
 func (tr *testCaseRun) buildPlots() error {
