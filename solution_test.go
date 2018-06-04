@@ -310,11 +310,8 @@ func (tr testCaseRun) doStaticTest(t *testing.T) {
 	data := append([]internal.Building(nil), tr.data...)
 	require.NoError(t, tr.solve(data), "expected solution to not fail")
 	if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
-		if err := tr.buildPlots(); err != nil {
-			t.Logf("unable to plot skyline: %v", err)
-		} else {
-			tr.logDebugInfo(t.Logf)
-		}
+		assert.NoError(t, tr.buildPlots(), "unable to plot skyline")
+		tr.logDebugInfo(t.Logf)
 	}
 }
 
@@ -323,8 +320,9 @@ func (tr testCaseRun) doGenTest(t *testing.T) {
 	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
 	data := append([]internal.Building(nil), tr.data...)
 	require.NoError(t, tr.solve(data), "expected solution to not fail")
-	require.NoError(t, tr.buildPlots(), "unable to plot skyline")
-	if !grayEQ(tr.expectedSky, tr.actualSky) {
+	ok := assert.NoError(t, tr.buildPlots(), "unable to plot skyline")
+	ok = ok && grayEQ(tr.expectedSky, tr.actualSky)
+	if !ok {
 		t.Fail()
 		tr.logDebugInfo(t.Logf)
 	}
