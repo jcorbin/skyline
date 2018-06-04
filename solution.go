@@ -17,8 +17,8 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // Solver holds any state for solving the skyline problem, potentially re-using
 // previously allocated state memory.
 type Solver struct {
-	pb  pending
 	bld builder
+	pb  pending
 }
 
 // Solve receives a slice of building definitions, and is expected to return
@@ -32,15 +32,11 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		sol.bld.res = make([]image.Point, n)
 	}
 	if n := len(data); n > cap(sol.pb.co) {
-		sol.pb = pending{
-			co: make(closeOrder, n),
-			rh: make([]int, n),
-		}
+		sol.pb = pending{co: make(closeOrder, n)}
 	}
 	sol.bld.cur = image.ZP
 	sol.bld.res = sol.bld.res[:0]
 	sol.pb.co = sol.pb.co[:0]
-	sol.pb.rh = sol.pb.rh[:0]
 	sort.Sort(openOrder(data))
 	for _, b := range data {
 		sol.pb = sol.bld.openBuilding(b, sol.pb)
@@ -63,7 +59,6 @@ func (co closeOrder) Swap(i, j int)      { co[i], co[j] = co[j], co[i] }
 type pending struct {
 	co closeOrder
 	sx int
-	rh []int
 }
 
 func (pb pending) find(i int) bool {
@@ -79,29 +74,6 @@ func (pb pending) append(b internal.Building) pending {
 		copy(pb.co[i+1:], pb.co[i:])
 		pb.co[i] = b
 	}
-	pb.rh = append(pb.rh, 0)
-	if i != n {
-		copy(pb.rh[i+1:], pb.rh[i:])
-		pb.rh[i] = pb.rh[i+1]
-		// if i--; i >= 0 { pb.rh[i+1] = pb.rh[i] }
-	} else {
-		i--
-	}
-
-	for i--; i >= 0 && b.Height > pb.rh[i]; i-- {
-		pb.rh[i] = b.Height
-	}
-
-	// TODO this should be the same, but it's not
-	h := 0
-	j := len(pb.rh) - 1
-	for ; j >= 0; j-- {
-		pb.rh[j] = h
-		if jh := pb.co[j].Height; h < jh {
-			h = jh
-		}
-	}
-
 	return pb
 }
 
@@ -124,13 +96,11 @@ func (bld *builder) openBuilding(b internal.Building, pb pending) pending {
 }
 
 func (bld *builder) closePast(x int, pb pending) pending {
-	pb.sx = x
-	j := sort.Search(len(pb.co), pb.find)
-	for i := 0; i < j; i++ {
+	i := 0
+	for ; i < len(pb.co) && pb.co[i].Sides[1] <= x; i++ {
 		bld.closeBuilding(i, pb)
 	}
-	pb.co = pb.co[:copy(pb.co, pb.co[j:])]
-	pb.rh = pb.rh[:copy(pb.rh, pb.rh[j:])]
+	pb.co = pb.co[:copy(pb.co, pb.co[i:])]
 	return pb
 }
 
@@ -139,14 +109,29 @@ func (bld *builder) closeOut(pb pending) pending {
 		bld.closeBuilding(i, pb)
 	}
 	pb.co = pb.co[:0]
-	pb.rh = pb.rh[:0]
 	return pb
 }
 
 func (bld *builder) closeBuilding(i int, pb pending) {
-	if remHeight := pb.rh[i]; remHeight < bld.cur.Y {
+	if remHeight := maxHeightIn(pb.co[i+1:]); remHeight < bld.cur.Y {
 		bld.stepTo(pb.co[i].Sides[1], remHeight)
 	}
+}
+
+// maxHeightIn computes the maximum height in a slice of buildings; it is used
+// in context to compute the "remaining pending height", and as such is doing
+// so in a wildly inefficient manner:
+// - since the caller will call this utility for each buildings[i] on
+//   buildings[i+1:], we're continually re-computing suffix-max-heights
+// - it'd be better to iterate buildings once in reverse order, collecting
+//   cum-max-heights
+func maxHeightIn(buildings []internal.Building) (h int) {
+	for j := 0; j < len(buildings); j++ {
+		if bh := buildings[j].Height; bh > h {
+			h = bh
+		}
+	}
+	return h
 }
 
 func (bld *builder) stepTo(x, y int) {
