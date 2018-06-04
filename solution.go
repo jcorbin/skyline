@@ -58,56 +58,34 @@ func (co closeOrder) Swap(i, j int)      { co[i], co[j] = co[j], co[i] }
 
 type pending struct {
 	co closeOrder
-	mx int
+	sx int
+}
+
+func (pb pending) find(i int) bool {
+	return pb.co[i].Sides[1] > pb.sx
 }
 
 func (pb pending) append(b internal.Building) pending {
+	pb.sx = b.Sides[1]
+	n := len(pb.co)
+	i := sort.Search(n, pb.find)
 	pb.co = append(pb.co, b)
-	if pb.mx == 0 || b.Sides[1] < pb.mx {
-		pb.mx = b.Sides[1]
+	if i != n {
+		copy(pb.co[i+1:], pb.co[i:])
+		pb.co[i] = b
 	}
 	return pb
 }
 
-func (pb pending) anyPast(x int) bool { return pb.mx <= x }
-
-func (pb pending) heapify() {
-	n := len(pb.co)
-	for i := n/2 - 1; i >= 0; i-- {
-		pb.down(i, n)
-	}
-}
+func (pb pending) anyPast(x int) bool { return len(pb.co) > 0 && pb.co[0].Sides[1] <= x }
 
 func (pb pending) pop() (internal.Building, pending) {
-	if i := len(pb.co) - 1; i > 0 {
-		pb.co.Swap(0, i)
-		pb.down(0, i)
-		b := pb.co[i]
-		pb.mx = pb.co[0].Sides[1]
-		pb.co = pb.co[:i]
-		return b, pb
+	if len(pb.co) == 0 {
+		panic("pop empty pending buildings")
 	}
 	b := pb.co[0]
-	return b, pending{co: pb.co[:0]}
-}
-
-func (pb pending) down(i0, n int) {
-	i := i0
-	for {
-		j1 := 2*i + 1
-		if j1 >= n || j1 < 0 { // j1 < 0 after int overflow
-			break
-		}
-		j := j1 // left child
-		if j2 := j1 + 1; j2 < n && pb.co.Less(j2, j1) {
-			j = j2 // = 2*i + 2  // right child
-		}
-		if !pb.co.Less(j, i) {
-			break
-		}
-		pb.co.Swap(i, j)
-		i = j
-	}
+	pb.co = pb.co[1:]
+	return b, pb
 }
 
 type builder struct {
@@ -127,7 +105,6 @@ func (bld *builder) openBuilding(b internal.Building, pb pending) pending {
 }
 
 func (bld *builder) closePast(x int, pb pending) pending {
-	pb.heapify()
 	for len(pb.co) > 0 && pb.co[0].Sides[1] <= x {
 		var b internal.Building
 		b, pb = pb.pop()
@@ -137,7 +114,6 @@ func (bld *builder) closePast(x int, pb pending) pending {
 }
 
 func (bld *builder) closeOut(pb pending) pending {
-	pb.heapify()
 	for len(pb.co) > 0 {
 		var b internal.Building
 		b, pb = pb.pop()
