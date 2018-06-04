@@ -33,76 +33,104 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		return nil, nil
 	}
 
-	if cap(sol.o1) < len(data) {
-		sol.o1 = make([]int, 0, len(data))
-		sol.x1 = make([]int, 0, len(data))
-		sol.o2 = make([]int, 0, len(data))
-		sol.x2 = make([]int, 0, len(data))
-		sol.h = make([]int, 0, len(data))
-		sol.res = make([]image.Point, 0, 4*len(data))
+	o1 := sol.o1
+	x1 := sol.x1
+	o2 := sol.o2
+	x2 := sol.x2
+	h := sol.h
+	res := sol.res
+
+	if cap(o1) < len(data) {
+		o1 = make([]int, 0, len(data))
+		x1 = make([]int, 0, len(data))
+		o2 = make([]int, 0, len(data))
+		x2 = make([]int, 0, len(data))
+		h = make([]int, 0, len(data))
+		res = make([]image.Point, 0, 4*len(data))
 	} else {
-		sol.o1 = sol.o1[:0]
-		sol.x1 = sol.x1[:0]
-		sol.o2 = sol.o2[:0]
-		sol.x2 = sol.x2[:0]
-		sol.h = sol.h[:0]
-		sol.res = sol.res[:0]
+		o1 = o1[:0]
+		x1 = x1[:0]
+		o2 = o2[:0]
+		x2 = x2[:0]
+		h = h[:0]
+		res = res[:0]
 	}
 
 	for i := range data {
-		sol.o1, sol.x1 = addOrderedXPoint(sol.o1, sol.x1, i, data[i].Sides[0])
-		sol.o2, sol.x2 = addOrderedXPoint(sol.o2, sol.x2, i, data[i].Sides[1])
-		sol.h = append(sol.h, data[i].Height)
+		o1, x1 = addOrderedXPoint(o1, x1, i, data[i].Sides[0])
+		o2, x2 = addOrderedXPoint(o2, x2, i, data[i].Sides[1])
+		h = append(h, data[i].Height)
 	}
+
+	sol.o1 = o1
+	sol.x1 = x1
+	sol.o2 = o2
+	sol.x2 = x2
+	sol.h = h
+	sol.res = res
 
 	cur := image.ZP
 	o2i := 0
-	for o1i := 0; o1i < len(sol.o1); o1i++ {
+	for o1i := 0; o1i < len(o1); o1i++ {
 		// NOTE test probably doesn't catch edge case where several co-incident
 		// opens cause redundant co-linear points
-		i := sol.o1[o1i]
-		bx := sol.x1[i]
+		i := o1[o1i]
+		bx := x1[i]
 
 		// close opened past bx
-		for o2i < len(sol.o2) && sol.x2[sol.o2[o2i]] < bx {
-			j := sol.o2[o2i]
-			cur, sol.res = tox(cur, sol.res, sol.x2[j])
-
-			// TODO try to pre-compute
+		for o2i < len(o2) && x2[o2[o2i]] < bx {
+			j := o2[o2i]
 			o2i++
-			rh := 0
-			for k := o2i; k < len(sol.o2) && sol.x2[sol.o2[k]] < bx; k++ {
-				if sol.h[k] > rh {
-					rh = sol.h[k]
-				}
+			if rh := remHeightUnder(bx, o2i, o2, x1, x2, h); rh < cur.Y {
+				cur, res = tox(cur, res, x2[j])
+				cur, res = goy(cur, res, rh)
 			}
-
-			cur, sol.res = downy(cur, sol.res, rh)
 		}
 
 		// open data[i]
-		cur, sol.res = tox(cur, sol.res, bx)
-		cur, sol.res = yup(cur, sol.res, sol.h[i])
+		if bh := h[i]; bh > cur.Y {
+			cur, res = tox(cur, res, bx)
+			cur, res = goy(cur, res, bh)
+		}
 	}
 
 	// flush opened
-	for o2i < len(sol.o2) {
-		j := sol.o2[o2i]
-		cur, sol.res = tox(cur, sol.res, sol.x2[j])
-
-		// TODO try to pre-compute
+	for o2i < len(o2) {
+		j := o2[o2i]
 		o2i++
-		rh := 0
-		for k := o2i; k < len(sol.o2); k++ {
-			if sol.h[k] > rh {
-				rh = sol.h[k]
-			}
+		if rh := remHeight(o2i, o2, x1, x2, h); rh < cur.Y {
+			cur, res = tox(cur, res, x2[j])
+			cur, res = goy(cur, res, rh)
 		}
-
-		cur, sol.res = downy(cur, sol.res, rh)
 	}
 
-	return sol.res, nil
+	return res, nil
+}
+
+// TODO pre-compute this rather than this expensive loop every time
+func remHeightUnder(bx, o2i int, o2, x1, x2, h []int) int {
+	rh := 0
+	for ; o2i < len(o2); o2i++ {
+		// TODO better to keep an open []int index?
+		if k := o2[o2i]; x1[k] < bx {
+			if kh := h[k]; kh > rh {
+				rh = kh
+			}
+		}
+	}
+	return rh
+}
+
+// TODO pre-compute this rather than this expensive loop every time
+func remHeight(o2i int, o2, x1, x2, h []int) int {
+	rh := 0
+	for ; o2i < len(o2); o2i++ {
+		// TODO better to keep an open []int index?
+		if kh := h[o2[o2i]]; kh > rh {
+			rh = kh
+		}
+	}
+	return rh
 }
 
 func addOrderedXPoint(os, xs []int, i, x int) (_, _ []int) {
@@ -113,29 +141,20 @@ func addOrderedXPoint(os, xs []int, i, x int) (_, _ []int) {
 	} else {
 		os = append(os, i)
 		copy(os[oi+1:], os[oi:])
+		os[oi] = i
 	}
 	return os, xs
+}
+
+func goy(cur image.Point, res []image.Point, y int) (image.Point, []image.Point) {
+	cur.Y = y
+	res = append(res, cur)
+	return cur, res
 }
 
 func tox(cur image.Point, res []image.Point, x int) (image.Point, []image.Point) {
 	if x != cur.X {
 		cur.X = x
-		res = append(res, cur)
-	}
-	return cur, res
-}
-
-func yup(cur image.Point, res []image.Point, y int) (image.Point, []image.Point) {
-	if y > cur.Y {
-		cur.Y = y
-		res = append(res, cur)
-	}
-	return cur, res
-}
-
-func downy(cur image.Point, res []image.Point, y int) (image.Point, []image.Point) {
-	if y < cur.Y {
-		cur.Y = y
 		res = append(res, cur)
 	}
 	return cur, res
