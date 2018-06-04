@@ -84,7 +84,7 @@ func (pb pending) pop() (internal.Building, pending) {
 		panic("pop empty pending buildings")
 	}
 	b := pb.co[0]
-	pb.co = pb.co[1:]
+	pb.co = pb.co[:copy(pb.co, pb.co[1:])]
 	return b, pb
 }
 
