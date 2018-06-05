@@ -2,7 +2,6 @@ package main
 
 import (
 	"image"
-	"sort"
 
 	"github.com/jcorbin/skyline/internal"
 )
@@ -104,12 +103,15 @@ func open(
 }
 
 func appendRH(i int, x2, h, op, rh []int) (_, _ []int) {
-	nop := len(op)
-	opi := sort.Search(nop, func(opi int) bool { return x2[op[opi]] > x2[i] })
+	// binary search for op-index where x2[i] goes
+	opi, nop := findRH(x2, op, x2[i])
+
+	// add new data at the end
 	op, rh = append(op, i), append(rh, 0)
 	mh := rh[opi]
 
 	if opi != nop {
+		// fix position of new data
 		if oh := h[op[opi]]; mh < oh {
 			mh = oh
 		}
@@ -119,6 +121,7 @@ func appendRH(i int, x2, h, op, rh []int) (_, _ []int) {
 		rh[opi] = mh
 	}
 
+	// re-compute remaining height
 	for opi > 0 {
 		if oh := h[op[opi]]; mh < oh {
 			mh = oh
@@ -132,6 +135,19 @@ func appendRH(i int, x2, h, op, rh []int) (_, _ []int) {
 	}
 
 	return op, rh
+}
+
+func findRH(x2, op []int, x int) (_, _ int) {
+	opi, nop := 0, len(op)
+	for j := nop; opi < j; {
+		h := int(uint(opi+j) >> 1)
+		if x2[op[h]] <= x {
+			opi = h + 1
+		} else {
+			j = h
+		}
+	}
+	return opi, nop
 }
 
 func closePast(
@@ -181,9 +197,9 @@ func flush(
 }
 
 func addOrderedXPoint(os, xs []int, i, x int) (_, _ []int) {
-	oi := sort.Search(len(os), func(oi int) bool { return xs[os[oi]] > x })
+	oi, on := findXPoint(os, xs, x)
 	xs = append(xs, x)
-	if oi == len(os) {
+	if oi == on {
 		os = append(os, i)
 	} else {
 		os = append(os, i)
@@ -191,6 +207,20 @@ func addOrderedXPoint(os, xs []int, i, x int) (_, _ []int) {
 		os[oi] = i
 	}
 	return os, xs
+}
+
+func findXPoint(os, xs []int, x int) (_, _ int) {
+	oi := 0
+	on := len(os)
+	for j := on; oi < j; {
+		h := int(uint(oi+j) >> 1)
+		if xs[os[h]] <= x {
+			oi = h + 1
+		} else {
+			j = h
+		}
+	}
+	return oi, on
 }
 
 func goy(cur image.Point, res []image.Point, y int) (image.Point, []image.Point) {
