@@ -124,9 +124,11 @@ func appendRH(i int, x2, h, op, rh []int) (_, _ []int) {
 			mh = oh
 		}
 		opi--
-		rh[opi] = mh
-		// TODO should be able to halt early
-		// if rh[opi] < bh { rh[opi] = bh }
+		if mh > rh[opi] {
+			rh[opi] = mh
+		} else {
+			break
+		}
 	}
 
 	return op, rh
