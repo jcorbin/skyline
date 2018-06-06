@@ -208,8 +208,10 @@ func TestSolve(t *testing.T) {
 	for _, tc := range staticTestCases {
 		t.Run(tc.String(), tc.run(Solve).runTest)
 	}
-	for _, tc := range genTestCases {
-		t.Run(tc.String(), tc.run(Solve).runTest)
+	if !t.Failed() {
+		for _, tc := range genTestCases {
+			t.Run(tc.String(), tc.run(Solve).runTest)
+		}
 	}
 }
 
@@ -223,8 +225,10 @@ func TestSolver_Solve(t *testing.T) {
 	for _, tc := range staticTestCases {
 		t.Run(tc.String(), tc.run(sol.Solve).runTest)
 	}
-	for _, tc := range genTestCases {
-		t.Run(tc.String(), tc.run(sol.Solve).runTest)
+	if !t.Failed() {
+		for _, tc := range genTestCases {
+			t.Run(tc.String(), tc.run(sol.Solve).runTest)
+		}
 	}
 }
 
