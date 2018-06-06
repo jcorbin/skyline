@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -208,8 +207,10 @@ func TestSolve(t *testing.T) {
 	for _, tc := range staticTestCases {
 		t.Run(tc.String(), tc.run(Solve).runTest)
 	}
-	for _, tc := range genTestCases {
-		t.Run(tc.String(), tc.run(Solve).runTest)
+	if !t.Failed() {
+		for _, tc := range genTestCases {
+			t.Run(tc.String(), tc.run(Solve).runTest)
+		}
 	}
 }
 
@@ -223,8 +224,10 @@ func TestSolver_Solve(t *testing.T) {
 	for _, tc := range staticTestCases {
 		t.Run(tc.String(), tc.run(sol.Solve).runTest)
 	}
-	for _, tc := range genTestCases {
-		t.Run(tc.String(), tc.run(sol.Solve).runTest)
+	if !t.Failed() {
+		for _, tc := range genTestCases {
+			t.Run(tc.String(), tc.run(sol.Solve).runTest)
+		}
 	}
 }
 
@@ -309,7 +312,10 @@ func (tr testCaseRun) runTest(t *testing.T) {
 func (tr testCaseRun) doStaticTest(t *testing.T) {
 	data := append([]internal.Building(nil), tr.data...)
 	require.NoError(t, tr.solve(data), "expected solution to not fail")
-	if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
+	if !assert.NoError(t, plotSkyline(nil, tr.points, 0x00), "expected a valid skyline") {
+		t.Logf("building data: %v", tr.data)
+		t.Logf("solution points: %v", tr.points)
+	} else if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
 		t.Logf("building data: %v", tr.data)
 		t.Logf("solution points: %v", tr.points)
 		assert.NoError(t, tr.buildPlots(), "unable to plot skyline")
@@ -516,6 +522,9 @@ func dump(gr *image.Gray, tr map[uint8]rune) []string {
 }
 
 func plotBuildings(gr *image.Gray, bs []internal.Building, val uint8) {
+	if gr == nil {
+		return
+	}
 	for _, b := range bs {
 		plotHLine(gr, b.Sides[0], b.Sides[1], 0, val)
 		plotHLine(gr, b.Sides[0], b.Sides[1], b.Height, val)
@@ -528,11 +537,10 @@ func plotSkyline(gr *image.Gray, points []image.Point, val uint8) error {
 	if len(points) == 0 {
 		return nil
 	}
-	errSkylinePoint := errors.New("skyline point must share exactly one component with prior")
 	cur := points[0]
-	for _, pt := range points[1:] {
+	for i, pt := range points[1:] {
 		if pt.Eq(cur) {
-			return errSkylinePoint
+			return fmt.Errorf("skyline contains duplicate point [%v]=%v", i, pt)
 		}
 		if pt.X == cur.X {
 			plotVLine(gr, cur.X, cur.Y, pt.Y, val)
@@ -541,13 +549,16 @@ func plotSkyline(gr *image.Gray, points []image.Point, val uint8) error {
 			plotHLine(gr, cur.X, pt.X, cur.Y, val)
 			cur.X = pt.X
 		} else {
-			return errSkylinePoint
+			return fmt.Errorf("skyline contains diagonal line from [%v]=%v to [%v]=%v", i-1, cur, i, pt)
 		}
 	}
 	return nil
 }
 
 func plotHLine(gr *image.Gray, x0, x1, y int, val uint8) {
+	if gr == nil {
+		return
+	}
 	if x1 < x0 {
 		x0, x1 = x1, x0
 	}
@@ -557,6 +568,9 @@ func plotHLine(gr *image.Gray, x0, x1, y int, val uint8) {
 }
 
 func plotVLine(gr *image.Gray, x, y0, y1 int, val uint8) {
+	if gr == nil {
+		return
+	}
 	if y1 < y0 {
 		y0, y1 = y1, y0
 	}
@@ -570,6 +584,9 @@ func plot2sky(
 	fillAt image.Point, fillWhere, fillWith uint8,
 	eraseWhere uint8,
 ) *image.Gray {
+	if gr == nil {
+		return nil
+	}
 	ngr := image.NewGray(gr.Rect)
 	copy(ngr.Pix, gr.Pix)
 
