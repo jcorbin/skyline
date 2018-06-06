@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -532,11 +531,10 @@ func plotSkyline(gr *image.Gray, points []image.Point, val uint8) error {
 	if len(points) == 0 {
 		return nil
 	}
-	errSkylinePoint := errors.New("skyline point must share exactly one component with prior")
 	cur := points[0]
-	for _, pt := range points[1:] {
+	for i, pt := range points[1:] {
 		if pt.Eq(cur) {
-			return errSkylinePoint
+			return fmt.Errorf("skyline contains duplicate point [%v]=%v", i, pt)
 		}
 		if pt.X == cur.X {
 			plotVLine(gr, cur.X, cur.Y, pt.Y, val)
@@ -545,7 +543,7 @@ func plotSkyline(gr *image.Gray, points []image.Point, val uint8) error {
 			plotHLine(gr, cur.X, pt.X, cur.Y, val)
 			cur.X = pt.X
 		} else {
-			return errSkylinePoint
+			return fmt.Errorf("skyline contains diagonal line from [%v]=%v to [%v]=%v", i-1, cur, i, pt)
 		}
 	}
 	return nil
