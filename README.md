@@ -44,6 +44,8 @@ There's an extensive [test suite](solution_test.go) provided:
   - The solution fails this exhaustive / generative test if:
     - Its resulting skyline has anything other than horizontal or vertical
       lines.
+    - Its resulting skyline is not minimal; e.g contains redundant co-linear
+      points in horizontal or vertical line.
     - The resulting sky isn't the same as the sky resulting from the building
       box input shape.
 
