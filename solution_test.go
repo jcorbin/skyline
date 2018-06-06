@@ -312,7 +312,10 @@ func (tr testCaseRun) runTest(t *testing.T) {
 func (tr testCaseRun) doStaticTest(t *testing.T) {
 	data := append([]internal.Building(nil), tr.data...)
 	require.NoError(t, tr.solve(data), "expected solution to not fail")
-	if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
+	if !assert.NoError(t, plotSkyline(nil, tr.points, 0x00), "expected a valid skyline") {
+		t.Logf("building data: %v", tr.data)
+		t.Logf("solution points: %v", tr.points)
+	} else if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
 		t.Logf("building data: %v", tr.data)
 		t.Logf("solution points: %v", tr.points)
 		assert.NoError(t, tr.buildPlots(), "unable to plot skyline")
