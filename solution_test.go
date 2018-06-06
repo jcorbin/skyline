@@ -519,6 +519,9 @@ func dump(gr *image.Gray, tr map[uint8]rune) []string {
 }
 
 func plotBuildings(gr *image.Gray, bs []internal.Building, val uint8) {
+	if gr == nil {
+		return
+	}
 	for _, b := range bs {
 		plotHLine(gr, b.Sides[0], b.Sides[1], 0, val)
 		plotHLine(gr, b.Sides[0], b.Sides[1], b.Height, val)
@@ -550,6 +553,9 @@ func plotSkyline(gr *image.Gray, points []image.Point, val uint8) error {
 }
 
 func plotHLine(gr *image.Gray, x0, x1, y int, val uint8) {
+	if gr == nil {
+		return
+	}
 	if x1 < x0 {
 		x0, x1 = x1, x0
 	}
@@ -559,6 +565,9 @@ func plotHLine(gr *image.Gray, x0, x1, y int, val uint8) {
 }
 
 func plotVLine(gr *image.Gray, x, y0, y1 int, val uint8) {
+	if gr == nil {
+		return
+	}
 	if y1 < y0 {
 		y0, y1 = y1, y0
 	}
@@ -572,6 +581,9 @@ func plot2sky(
 	fillAt image.Point, fillWhere, fillWith uint8,
 	eraseWhere uint8,
 ) *image.Gray {
+	if gr == nil {
+		return nil
+	}
 	ngr := image.NewGray(gr.Rect)
 	copy(ngr.Pix, gr.Pix)
 
