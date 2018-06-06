@@ -224,15 +224,27 @@ func findXPoint(os, xs []int, x int) (_, _ int) {
 }
 
 func goy(cur image.Point, res []image.Point, y int) (image.Point, []image.Point) {
-	cur.Y = y
-	res = append(res, cur)
+	i, j := len(res)-2, len(res)-1
+	if i >= 0 && res[i].X == res[j].X {
+		res[j].Y = y
+		cur.Y = y
+	} else {
+		cur.Y = y
+		res = append(res, cur)
+	}
 	return cur, res
 }
 
 func tox(cur image.Point, res []image.Point, x int) (image.Point, []image.Point) {
 	if x != cur.X {
-		cur.X = x
-		res = append(res, cur)
+		i, j := len(res)-2, len(res)-1
+		if i >= 0 && res[i].Y == res[j].Y {
+			res[j].X = x
+			cur.X = x
+		} else {
+			cur.X = x
+			res = append(res, cur)
+		}
 	}
 	return cur, res
 }
