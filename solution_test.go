@@ -534,23 +534,42 @@ func plotBuildings(gr *image.Gray, bs []internal.Building, val uint8) {
 }
 
 func plotSkyline(gr *image.Gray, points []image.Point, val uint8) error {
+	const (
+		dirNone = iota
+		dirVert
+		dirHoriz
+	)
+
 	if len(points) == 0 {
 		return nil
 	}
-	cur := points[0]
-	for i, pt := range points[1:] {
+
+	last, lastDir, cur := image.ZP, dirNone, points[0]
+	for i := 1; i < len(points); i++ {
+		pt := points[i]
 		if pt.Eq(cur) {
 			return fmt.Errorf("skyline contains duplicate point [%v]=%v", i, pt)
 		}
+		dir := dirNone
 		if pt.X == cur.X {
+			dir = dirVert
 			plotVLine(gr, cur.X, cur.Y, pt.Y, val)
 			cur.Y = pt.Y
 		} else if pt.Y == cur.Y {
+			dir = dirHoriz
 			plotHLine(gr, cur.X, pt.X, cur.Y, val)
 			cur.X = pt.X
 		} else {
 			return fmt.Errorf("skyline contains diagonal line from [%v]=%v to [%v]=%v", i-1, cur, i, pt)
 		}
+		if dir == lastDir {
+			return fmt.Errorf("skyline contains co-linear points through {[%v]=%v [%v]=%v [%v]=%v}",
+				i-2, points[i-2],
+				i-1, last,
+				i, cur,
+			)
+		}
+		last, lastDir = cur, dir
 	}
 	return nil
 }
