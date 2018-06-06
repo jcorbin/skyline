@@ -5,24 +5,21 @@ test:
 
 BENCHTIME:=100ms
 
+ifeq ($(strip $(OUT)),)
 bench:
-	go test . -bench . -benchmem -benchtime $(BENCHTIME) | tee bench.out
-
-ifeq ($(strip $(BENCHOUT)),)
-pprof:
 	go test . -bench . -benchmem -benchtime $(BENCHTIME) \
 		-o skyline.test \
 		-cpuprofile cpu.pprof \
 		-memprofile mem.pprof \
-		| tee bench.pprof.out
+		| tee bench.out
 else
-pprof:
-	mkdir -p $(BENCHOUT)
+bench:
+	mkdir -p $(OUT)
 	go test . -bench . -benchmem -benchtime $(BENCHTIME) \
-		-o $(BENCHOUT)/skyline.test \
-		-cpuprofile $(BENCHOUT)/cpu.pprof \
-		-memprofile $(BENCHOUT)/mem.pprof \
-		| tee $(BENCHOUT)/bench.pprof.out
+		-o $(OUT)/skyline.test \
+		-cpuprofile $(OUT)/cpu.pprof \
+		-memprofile $(OUT)/mem.pprof \
+		| tee $(OUT)/bench.out
 endif
 
 bin/gen: gen/*.go
