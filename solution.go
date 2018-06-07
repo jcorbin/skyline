@@ -39,9 +39,20 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	sol.alloc(len(data))
 
 	for i := range data {
-		sol.o1, sol.x1 = addOrderedXPoint(sol.o1, sol.x1, i, data[i].Sides[0])
+		sol.x1 = append(sol.x1, data[i].Sides[0])
 		sol.x2 = append(sol.x2, data[i].Sides[1])
 		sol.h = append(sol.h, data[i].Height)
+	}
+
+	for i, x := range sol.x1 {
+		oi, on := findXPoint(sol.o1, sol.x1[:i], x)
+		if oi == on {
+			sol.o1 = append(sol.o1, i)
+		} else {
+			sol.o1 = append(sol.o1, i)
+			copy(sol.o1[oi+1:], sol.o1[oi:])
+			sol.o1[oi] = i
+		}
 	}
 
 	sol.dir = dirNone
@@ -160,19 +171,6 @@ func (sol *Solver) flush() {
 	}
 	sol.op = sol.op[:0]
 	sol.rh = sol.rh[:0]
-}
-
-func addOrderedXPoint(os, xs []int, i, x int) (_, _ []int) {
-	oi, on := findXPoint(os, xs, x)
-	xs = append(xs, x)
-	if oi == on {
-		os = append(os, i)
-	} else {
-		os = append(os, i)
-		copy(os[oi+1:], os[oi:])
-		os[oi] = i
-	}
-	return os, xs
 }
 
 func findXPoint(os, xs []int, x int) (_, _ int) {
