@@ -16,14 +16,16 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // Solver holds any state for solving the skyline problem, potentially re-using
 // previously allocated state memory.
 type Solver struct {
-	o1  []int
-	x1  []int
-	x2  []int
-	h   []int
-	op  []int
-	rh  []int
+	o1 []int
+	x1 []int
+	x2 []int
+	h  []int
+	op []int
+	rh []int
 
-	builder
+	dir bldDir
+	cur image.Point
+	res []image.Point
 }
 
 // Solve receives a slice of building definitions, and is expected to return
@@ -72,8 +74,10 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	sol.h = h
 	sol.op = op
 	sol.rh = rh
-	sol.res = res
+
+	sol.dir = dirNone
 	sol.cur = image.ZP
+	sol.res = res
 
 	for o1i := 0; o1i < len(o1); o1i++ {
 		// NOTE test probably doesn't catch edge case where several co-incident
@@ -87,13 +91,13 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	return sol.res, nil
 }
 
-func (bld *builder) open(
+func (sol *Solver) open(
 	i int, x1, x2, h []int,
 	op, rh []int,
 ) (_, _ []int) {
-	if bh := h[i]; bh > bld.cur.Y {
-		bld.tox(x1[i])
-		bld.goy(bh)
+	if bh := h[i]; bh > sol.cur.Y {
+		sol.tox(x1[i])
+		sol.goy(bh)
 	}
 	op, rh = appendRH(i, x2, h, op, rh)
 	return op, rh
@@ -147,7 +151,7 @@ func findRH(x2, op []int, x int) (_, _ int) {
 	return opi, nop
 }
 
-func (bld *builder) closePast(
+func (sol *Solver) closePast(
 	i int, x1, x2 []int,
 	op, rh []int,
 ) (_, _ []int) {
@@ -158,9 +162,9 @@ func (bld *builder) closePast(
 		if x2[j] >= bx {
 			break
 		}
-		if ah := rh[opi]; ah < bld.cur.Y {
-			bld.tox(x2[j])
-			bld.goy(ah)
+		if ah := rh[opi]; ah < sol.cur.Y {
+			sol.tox(x2[j])
+			sol.goy(ah)
 		}
 	}
 	op = op[:copy(op, op[opi:])]
@@ -168,16 +172,16 @@ func (bld *builder) closePast(
 	return op, rh
 }
 
-func (bld *builder) flush(
+func (sol *Solver) flush(
 	x2 []int,
 	op, rh []int,
 ) (_, _ []int) {
 	opi := 0
 	for ; opi < len(op); opi++ {
 		j := op[opi]
-		if ah := rh[opi]; ah < bld.cur.Y {
-			bld.tox(x2[j])
-			bld.goy(ah)
+		if ah := rh[opi]; ah < sol.cur.Y {
+			sol.tox(x2[j])
+			sol.goy(ah)
 		}
 	}
 	op = op[:0]
@@ -220,30 +224,24 @@ const (
 	dirHoriz
 )
 
-type builder struct {
-	cur image.Point
-	res []image.Point
-	dir bldDir
-}
-
-func (bld *builder) goy(y int) {
-	bld.cur.Y = y
-	if bld.dir == dirVert {
-		bld.res[len(bld.res)-1].Y = y
+func (sol *Solver) goy(y int) {
+	sol.cur.Y = y
+	if sol.dir == dirVert {
+		sol.res[len(sol.res)-1].Y = y
 	} else {
-		bld.res = append(bld.res, bld.cur)
+		sol.res = append(sol.res, sol.cur)
 	}
-	bld.dir = dirVert
+	sol.dir = dirVert
 }
 
-func (bld *builder) tox(x int) {
-	if x != bld.cur.X {
-		bld.cur.X = x
-		if bld.dir == dirHoriz {
-			bld.res[len(bld.res)-1].X = x
+func (sol *Solver) tox(x int) {
+	if x != sol.cur.X {
+		sol.cur.X = x
+		if sol.dir == dirHoriz {
+			sol.res[len(sol.res)-1].X = x
 		} else {
-			bld.res = append(bld.res, bld.cur)
+			sol.res = append(sol.res, sol.cur)
 		}
-		bld.dir = dirHoriz
+		sol.dir = dirHoriz
 	}
 }
