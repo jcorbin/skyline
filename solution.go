@@ -22,7 +22,8 @@ type Solver struct {
 	h   []int
 	op  []int
 	rh  []int
-	res []image.Point
+
+	builder
 }
 
 // Solve receives a slice of building definitions, and is expected to return
@@ -72,34 +73,30 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	sol.op = op
 	sol.rh = rh
 	sol.res = res
+	sol.cur = image.ZP
 
-	cur := image.ZP
 	for o1i := 0; o1i < len(o1); o1i++ {
 		// NOTE test probably doesn't catch edge case where several co-incident
 		// opens cause redundant co-linear points
 		i := o1[o1i]
-		op, rh, cur, res = closePast(i, x1, x2, op, rh, cur, res)
-		op, rh, cur, res = open(i, x1, x2, h, op, rh, cur, res)
+		op, rh = sol.closePast(i, x1, x2, op, rh)
+		op, rh = sol.open(i, x1, x2, h, op, rh)
 	}
-	op, rh, cur, res = flush(x2, op, rh, cur, res)
+	op, rh = sol.flush(x2, op, rh)
 
-	return res, nil
+	return sol.res, nil
 }
 
-func open(
+func (bld *builder) open(
 	i int, x1, x2, h []int,
 	op, rh []int,
-	cur image.Point, res []image.Point,
-) (
-	_, _ []int,
-	_ image.Point, _ []image.Point,
-) {
-	if bh := h[i]; bh > cur.Y {
-		cur, res = tox(cur, res, x1[i])
-		cur, res = goy(cur, res, bh)
+) (_, _ []int) {
+	if bh := h[i]; bh > bld.cur.Y {
+		bld.tox(x1[i])
+		bld.goy(bh)
 	}
 	op, rh = appendRH(i, x2, h, op, rh)
-	return op, rh, cur, res
+	return op, rh
 }
 
 func appendRH(i int, x2, h, op, rh []int) (_, _ []int) {
@@ -150,14 +147,10 @@ func findRH(x2, op []int, x int) (_, _ int) {
 	return opi, nop
 }
 
-func closePast(
+func (bld *builder) closePast(
 	i int, x1, x2 []int,
 	op, rh []int,
-	cur image.Point, res []image.Point,
-) (
-	_, _ []int,
-	_ image.Point, _ []image.Point,
-) {
+) (_, _ []int) {
 	bx := x1[i]
 	opi := 0
 	for ; opi < len(op); opi++ {
@@ -165,35 +158,31 @@ func closePast(
 		if x2[j] >= bx {
 			break
 		}
-		if ah := rh[opi]; ah < cur.Y {
-			cur, res = tox(cur, res, x2[j])
-			cur, res = goy(cur, res, ah)
+		if ah := rh[opi]; ah < bld.cur.Y {
+			bld.tox(x2[j])
+			bld.goy(ah)
 		}
 	}
 	op = op[:copy(op, op[opi:])]
 	rh = rh[:copy(rh, rh[opi:])]
-	return op, rh, cur, res
+	return op, rh
 }
 
-func flush(
+func (bld *builder) flush(
 	x2 []int,
 	op, rh []int,
-	cur image.Point, res []image.Point,
-) (
-	_, _ []int,
-	_ image.Point, _ []image.Point,
-) {
+) (_, _ []int) {
 	opi := 0
 	for ; opi < len(op); opi++ {
 		j := op[opi]
-		if ah := rh[opi]; ah < cur.Y {
-			cur, res = tox(cur, res, x2[j])
-			cur, res = goy(cur, res, ah)
+		if ah := rh[opi]; ah < bld.cur.Y {
+			bld.tox(x2[j])
+			bld.goy(ah)
 		}
 	}
 	op = op[:0]
 	rh = rh[:0]
-	return op, rh, cur, res
+	return op, rh
 }
 
 func addOrderedXPoint(os, xs []int, i, x int) (_, _ []int) {
@@ -223,28 +212,38 @@ func findXPoint(os, xs []int, x int) (_, _ int) {
 	return oi, on
 }
 
-func goy(cur image.Point, res []image.Point, y int) (image.Point, []image.Point) {
-	i, j := len(res)-2, len(res)-1
-	if i >= 0 && res[i].X == res[j].X {
-		res[j].Y = y
-		cur.Y = y
-	} else {
-		cur.Y = y
-		res = append(res, cur)
-	}
-	return cur, res
+type bldDir uint8
+
+const (
+	dirNone bldDir = iota
+	dirVert
+	dirHoriz
+)
+
+type builder struct {
+	cur image.Point
+	res []image.Point
+	dir bldDir
 }
 
-func tox(cur image.Point, res []image.Point, x int) (image.Point, []image.Point) {
-	if x != cur.X {
-		i, j := len(res)-2, len(res)-1
-		if i >= 0 && res[i].Y == res[j].Y {
-			res[j].X = x
-			cur.X = x
-		} else {
-			cur.X = x
-			res = append(res, cur)
-		}
+func (bld *builder) goy(y int) {
+	bld.cur.Y = y
+	if bld.dir == dirVert {
+		bld.res[len(bld.res)-1].Y = y
+	} else {
+		bld.res = append(bld.res, bld.cur)
 	}
-	return cur, res
+	bld.dir = dirVert
+}
+
+func (bld *builder) tox(x int) {
+	if x != bld.cur.X {
+		bld.cur.X = x
+		if bld.dir == dirHoriz {
+			bld.res[len(bld.res)-1].X = x
+		} else {
+			bld.res = append(bld.res, bld.cur)
+		}
+		bld.dir = dirHoriz
+	}
 }
