@@ -16,12 +16,15 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // Solver holds any state for solving the skyline problem, potentially re-using
 // previously allocated state memory.
 type Solver struct {
-	o1  []int
-	x1  []int
-	x2  []int
-	h   []int
-	op  []int
-	rh  []int
+	o1 []int
+	x1 []int
+	x2 []int
+	h  []int
+	op []int
+	rh []int
+
+	dir bldDir
+	cur image.Point
 	res []image.Point
 }
 
@@ -33,115 +36,105 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		return nil, nil
 	}
 
-	o1 := sol.o1
-	x1 := sol.x1
-	x2 := sol.x2
-	h := sol.h
-	op := sol.op
-	rh := sol.rh
-	res := sol.res
-
-	if cap(o1) < len(data) {
-		o1 = make([]int, 0, len(data))
-		x1 = make([]int, 0, len(data))
-		x2 = make([]int, 0, len(data))
-		h = make([]int, 0, len(data))
-		op = make([]int, 0, len(data))
-		rh = make([]int, 0, len(data))
-		res = make([]image.Point, 0, 4*len(data))
-	} else {
-		o1 = o1[:0]
-		x1 = x1[:0]
-		x2 = x2[:0]
-		h = h[:0]
-		op = op[:0]
-		rh = rh[:0]
-		res = res[:0]
-	}
+	sol.alloc(len(data))
 
 	for i := range data {
-		o1, x1 = addOrderedXPoint(o1, x1, i, data[i].Sides[0])
-		x2 = append(x2, data[i].Sides[1])
-		h = append(h, data[i].Height)
+		sol.x1 = append(sol.x1, data[i].Sides[0])
+		sol.x2 = append(sol.x2, data[i].Sides[1])
+		sol.h = append(sol.h, data[i].Height)
 	}
 
-	sol.o1 = o1
-	sol.x1 = x1
-	sol.x2 = x2
-	sol.h = h
-	sol.op = op
-	sol.rh = rh
-	sol.res = res
+	for i, x := range sol.x1 {
+		oi, on := findXPoint(sol.o1, sol.x1[:i], x)
+		if oi == on {
+			sol.o1 = append(sol.o1, i)
+		} else {
+			sol.o1 = append(sol.o1, i)
+			copy(sol.o1[oi+1:], sol.o1[oi:])
+			sol.o1[oi] = i
+		}
+	}
 
-	cur := image.ZP
-	for o1i := 0; o1i < len(o1); o1i++ {
+	sol.dir = dirNone
+	sol.cur = image.ZP
+	for o1i := 0; o1i < len(sol.o1); o1i++ {
 		// NOTE test probably doesn't catch edge case where several co-incident
 		// opens cause redundant co-linear points
-		i := o1[o1i]
-		op, rh, cur, res = closePast(i, x1, x2, op, rh, cur, res)
-		op, rh, cur, res = open(i, x1, x2, h, op, rh, cur, res)
+		i := sol.o1[o1i]
+		sol.closePast(i)
+		sol.open(i)
 	}
-	op, rh, cur, res = flush(x2, op, rh, cur, res)
+	sol.flush()
 
-	return res, nil
+	return sol.res, nil
 }
 
-func open(
-	i int, x1, x2, h []int,
-	op, rh []int,
-	cur image.Point, res []image.Point,
-) (
-	_, _ []int,
-	_ image.Point, _ []image.Point,
-) {
-	if bh := h[i]; bh > cur.Y {
-		cur, res = tox(cur, res, x1[i])
-		cur, res = goy(cur, res, bh)
+func (sol *Solver) alloc(n int) {
+	if cap(sol.o1) < n {
+		sol.o1 = make([]int, 0, n)
+		sol.x1 = make([]int, 0, n)
+		sol.x2 = make([]int, 0, n)
+		sol.h = make([]int, 0, n)
+		sol.op = make([]int, 0, n)
+		sol.rh = make([]int, 0, n)
+		sol.res = make([]image.Point, 0, 4*n)
+	} else {
+		sol.o1 = sol.o1[:0]
+		sol.x1 = sol.x1[:0]
+		sol.x2 = sol.x2[:0]
+		sol.h = sol.h[:0]
+		sol.op = sol.op[:0]
+		sol.rh = sol.rh[:0]
+		sol.res = sol.res[:0]
 	}
-	op, rh = appendRH(i, x2, h, op, rh)
-	return op, rh, cur, res
 }
 
-func appendRH(i int, x2, h, op, rh []int) (_, _ []int) {
+func (sol *Solver) open(i int) {
+	if bh := sol.h[i]; bh > sol.cur.Y {
+		sol.tox(sol.x1[i])
+		sol.goy(bh)
+	}
+	sol.appendRH(i)
+}
+
+func (sol *Solver) appendRH(i int) {
 	// binary search for op-index where x2[i] goes
-	opi, nop := findRH(x2, op, x2[i])
+	opi, nop := sol.findRH(sol.x2[i])
 
 	// add new data at the end
-	op, rh = append(op, i), append(rh, 0)
-	mh := rh[opi]
+	sol.op, sol.rh = append(sol.op, i), append(sol.rh, 0)
+	mh := sol.rh[opi]
 
 	if opi != nop {
 		// fix position of new data
-		if oh := h[op[opi]]; mh < oh {
+		if oh := sol.h[sol.op[opi]]; mh < oh {
 			mh = oh
 		}
-		copy(op[opi+1:], op[opi:])
-		copy(rh[opi+1:], rh[opi:])
-		op[opi] = i
-		rh[opi] = mh
+		copy(sol.op[opi+1:], sol.op[opi:])
+		copy(sol.rh[opi+1:], sol.rh[opi:])
+		sol.op[opi] = i
+		sol.rh[opi] = mh
 	}
 
 	// re-compute remaining height
 	for opi > 0 {
-		if oh := h[op[opi]]; mh < oh {
+		if oh := sol.h[sol.op[opi]]; mh < oh {
 			mh = oh
 		}
 		opi--
-		if mh > rh[opi] {
-			rh[opi] = mh
+		if mh > sol.rh[opi] {
+			sol.rh[opi] = mh
 		} else {
 			break
 		}
 	}
-
-	return op, rh
 }
 
-func findRH(x2, op []int, x int) (_, _ int) {
-	opi, nop := 0, len(op)
+func (sol *Solver) findRH(x int) (_, _ int) {
+	opi, nop := 0, len(sol.op)
 	for j := nop; opi < j; {
 		h := int(uint(opi+j) >> 1)
-		if x2[op[h]] <= x {
+		if sol.x2[sol.op[h]] <= x {
 			opi = h + 1
 		} else {
 			j = h
@@ -150,63 +143,34 @@ func findRH(x2, op []int, x int) (_, _ int) {
 	return opi, nop
 }
 
-func closePast(
-	i int, x1, x2 []int,
-	op, rh []int,
-	cur image.Point, res []image.Point,
-) (
-	_, _ []int,
-	_ image.Point, _ []image.Point,
-) {
-	bx := x1[i]
+func (sol *Solver) closePast(i int) {
+	bx := sol.x1[i]
 	opi := 0
-	for ; opi < len(op); opi++ {
-		j := op[opi]
-		if x2[j] >= bx {
+	for ; opi < len(sol.op); opi++ {
+		j := sol.op[opi]
+		if sol.x2[j] >= bx {
 			break
 		}
-		if ah := rh[opi]; ah < cur.Y {
-			cur, res = tox(cur, res, x2[j])
-			cur, res = goy(cur, res, ah)
+		if ah := sol.rh[opi]; ah < sol.cur.Y {
+			sol.tox(sol.x2[j])
+			sol.goy(ah)
 		}
 	}
-	op = op[:copy(op, op[opi:])]
-	rh = rh[:copy(rh, rh[opi:])]
-	return op, rh, cur, res
+	sol.op = sol.op[:copy(sol.op, sol.op[opi:])]
+	sol.rh = sol.rh[:copy(sol.rh, sol.rh[opi:])]
 }
 
-func flush(
-	x2 []int,
-	op, rh []int,
-	cur image.Point, res []image.Point,
-) (
-	_, _ []int,
-	_ image.Point, _ []image.Point,
-) {
+func (sol *Solver) flush() {
 	opi := 0
-	for ; opi < len(op); opi++ {
-		j := op[opi]
-		if ah := rh[opi]; ah < cur.Y {
-			cur, res = tox(cur, res, x2[j])
-			cur, res = goy(cur, res, ah)
+	for ; opi < len(sol.op); opi++ {
+		j := sol.op[opi]
+		if ah := sol.rh[opi]; ah < sol.cur.Y {
+			sol.tox(sol.x2[j])
+			sol.goy(ah)
 		}
 	}
-	op = op[:0]
-	rh = rh[:0]
-	return op, rh, cur, res
-}
-
-func addOrderedXPoint(os, xs []int, i, x int) (_, _ []int) {
-	oi, on := findXPoint(os, xs, x)
-	xs = append(xs, x)
-	if oi == on {
-		os = append(os, i)
-	} else {
-		os = append(os, i)
-		copy(os[oi+1:], os[oi:])
-		os[oi] = i
-	}
-	return os, xs
+	sol.op = sol.op[:0]
+	sol.rh = sol.rh[:0]
 }
 
 func findXPoint(os, xs []int, x int) (_, _ int) {
@@ -223,28 +187,32 @@ func findXPoint(os, xs []int, x int) (_, _ int) {
 	return oi, on
 }
 
-func goy(cur image.Point, res []image.Point, y int) (image.Point, []image.Point) {
-	i, j := len(res)-2, len(res)-1
-	if i >= 0 && res[i].X == res[j].X {
-		res[j].Y = y
-		cur.Y = y
+type bldDir uint8
+
+const (
+	dirNone bldDir = iota
+	dirVert
+	dirHoriz
+)
+
+func (sol *Solver) goy(y int) {
+	sol.cur.Y = y
+	if sol.dir == dirVert {
+		sol.res[len(sol.res)-1].Y = y
 	} else {
-		cur.Y = y
-		res = append(res, cur)
+		sol.res = append(sol.res, sol.cur)
 	}
-	return cur, res
+	sol.dir = dirVert
 }
 
-func tox(cur image.Point, res []image.Point, x int) (image.Point, []image.Point) {
-	if x != cur.X {
-		i, j := len(res)-2, len(res)-1
-		if i >= 0 && res[i].Y == res[j].Y {
-			res[j].X = x
-			cur.X = x
+func (sol *Solver) tox(x int) {
+	if x != sol.cur.X {
+		sol.cur.X = x
+		if sol.dir == dirHoriz {
+			sol.res[len(sol.res)-1].X = x
 		} else {
-			cur.X = x
-			res = append(res, cur)
+			sol.res = append(sol.res, sol.cur)
 		}
+		sol.dir = dirHoriz
 	}
-	return cur, res
 }
