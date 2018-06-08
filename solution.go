@@ -16,6 +16,7 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // Solver holds any state for solving the skyline problem, potentially re-using
 // previously allocated state memory.
 type Solver struct {
+	hs  []int
 	cur image.Point
 	res []image.Point
 }
@@ -28,8 +29,6 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		return nil, nil
 	}
 
-	sol.alloc(len(data))
-
 	maxx := 0
 	for _, b := range data {
 		if x := b.Sides[1]; x > maxx {
@@ -37,19 +36,20 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		}
 	}
 
-	hs := make([]int, maxx+1)
+	sol.alloc(len(data), maxx)
+
 	for _, b := range data {
 		x1, x2, h := b.Sides[0], b.Sides[1], b.Height
 		for x := x1; x <= x2; x++ {
-			if hs[x] < h {
-				hs[x] = h
+			if sol.hs[x] < h {
+				sol.hs[x] = h
 			}
 		}
 	}
 
 	x := 0
-	for ; x < len(hs); x++ {
-		if h := hs[x]; h < sol.cur.Y {
+	for ; x <= maxx; x++ {
+		if h := sol.hs[x]; h < sol.cur.Y {
 			sol.gox(x - 1)
 			sol.goy(h)
 		} else if h > sol.cur.Y {
@@ -58,7 +58,7 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		}
 	}
 	if sol.cur.Y != 0 {
-		sol.gox(len(hs) - 1)
+		sol.gox(maxx)
 		sol.goy(0)
 	}
 
@@ -75,10 +75,19 @@ func (sol *Solver) goy(y int) {
 	sol.res = append(sol.res, sol.cur)
 }
 
-func (sol *Solver) alloc(n int) {
+func (sol *Solver) alloc(n, maxx int) {
 	if m := 4 * n; m < cap(sol.res) {
 		sol.res = make([]image.Point, 0, m)
 	} else {
 		sol.res = sol.res[:0]
+	}
+
+	if hn := maxx + 1; hn < cap(sol.hs) {
+		sol.hs = sol.hs[:hn]
+		for i := range sol.hs {
+			sol.hs[i] = 0
+		}
+	} else {
+		sol.hs = make([]int, hn)
 	}
 }
