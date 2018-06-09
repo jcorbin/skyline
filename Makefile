@@ -1,13 +1,18 @@
 all: bin/gen bin/display
 
+NMIN=0
+NMAX=1024
+NSTEPS=32
+TESTFLAGS=-nmin $(NMIN) -nmax $(NMAX) -nsteps $(NSTEPS)
+
 test:
-	go test -v .
+	go test -v . $(TESTFLAGS)
 
 BENCHTIME:=100ms
 
 ifeq ($(strip $(OUT)),)
 bench:
-	go test . -bench . -benchmem -benchtime $(BENCHTIME) \
+	go test . $(TESTFLAGS) -bench . -benchmem -benchtime $(BENCHTIME) \
 		-o skyline.test \
 		-cpuprofile cpu.pprof \
 		-memprofile mem.pprof \
@@ -15,7 +20,7 @@ bench:
 else
 bench:
 	mkdir -p $(OUT)
-	go test . -bench . -benchmem -benchtime $(BENCHTIME) \
+	go test . $(TESTFLAGS) -bench . -benchmem -benchtime $(BENCHTIME) \
 		-o $(OUT)/skyline.test \
 		-cpuprofile $(OUT)/cpu.pprof \
 		-memprofile $(OUT)/mem.pprof \

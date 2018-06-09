@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -18,6 +19,43 @@ import (
 	. "github.com/jcorbin/skyline"
 	"github.com/jcorbin/skyline/internal"
 )
+
+var (
+	genMin  = 0
+	genMax  = 1024
+	genStep = 32
+)
+
+type _genSteps struct{}
+
+func (gs _genSteps) String() string {
+	w := genMax - genMin
+	n := (w + genStep - 1) / genStep
+	return strconv.Itoa(n)
+}
+
+func (gs _genSteps) Set(s string) error {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return err
+	}
+	w := genMax - genMin
+	genStep = w / n
+	return nil
+}
+
+var genSteps = _genSteps{}
+
+func init() {
+	flag.IntVar(&genMin, "nmin", genMin,
+		"minimum N value for generative tests and benchmarks")
+	flag.IntVar(&genMax, "nmax", genMax,
+		"maximum N value for generative tests and benchmarks")
+	flag.IntVar(&genStep, "nstep", genStep,
+		"linear N step size for generative tests and benchmarks")
+	flag.Var(&genSteps, "nsteps",
+		"number of linear steps to take for generative tests and benchmarks")
+}
 
 var staticTestCases = []testCase{
 	{
@@ -339,18 +377,12 @@ func (tr testCaseRun) doGenTest(t *testing.T) {
 }
 
 func (tr testCaseRun) doGenSearchTest(t *testing.T) (pass bool) {
-	const (
-		min  = 1
-		max  = 1024
-		step = 128
-	)
-
-	if tr.n = min; !t.Run(tr.String(), tr.doGenTest) {
+	if tr.n = genMin; !t.Run(tr.String(), tr.doGenTest) {
 		return false
 	}
 
 	pass = true
-	for tr.n = max; tr.n > min; tr.n -= step {
+	for tr.n = genMax; tr.n > genMin; tr.n -= genStep {
 		if !t.Run(tr.String(), tr.doGenTest) {
 			pass = false
 			break
@@ -360,8 +392,8 @@ func (tr testCaseRun) doGenSearchTest(t *testing.T) (pass bool) {
 		return true
 	}
 
-	sanity := max - min
-	for n := min; tr.n-n > 1; {
+	sanity := genMax - genMin
+	for n := genMin; tr.n-n > 1; {
 		sanity--
 		require.True(t, sanity > 0, "search looping infinitely")
 		lastN := tr.n
@@ -402,12 +434,7 @@ func (tr testCaseRun) doGenBench(b *testing.B) {
 }
 
 func (tr testCaseRun) doGenScaleBench(b *testing.B) {
-	const (
-		min  = 0
-		max  = 1024
-		step = 32
-	)
-	for tr.n = min; tr.n < max; tr.n += step {
+	for tr.n = genMin; tr.n <= genMax; tr.n += genStep {
 		b.Run(tr.String(), tr.doGenBench)
 	}
 }
