@@ -21,9 +21,15 @@ import (
 )
 
 var (
-	genMin  = 0
-	genMax  = 1024
-	genStep = 32
+	genMin   = 0
+	genMax   = 1024
+	genStep  = 32
+	genSeed  = int64(0)
+	genSizes = []image.Point{
+		image.Pt(16, 16),
+		image.Pt(32, 32),
+		image.Pt(64, 64),
+	}
 )
 
 type _genSteps struct{}
@@ -46,15 +52,58 @@ func (gs _genSteps) Set(s string) error {
 
 var genSteps = _genSteps{}
 
+type sizesFlag struct {
+	sizes *[]image.Point
+}
+
+func (ss sizesFlag) String() string {
+	var sizes []image.Point
+	if ss.sizes != nil {
+		sizes = *ss.sizes
+	}
+	parts := make([]string, len(sizes))
+	for i, sz := range sizes {
+		if sz.X == sz.Y {
+			parts[i] = fmt.Sprintf("%v", sz.X)
+		} else {
+			parts[i] = fmt.Sprintf("%v,%v", sz.X, sz.Y)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func (ss sizesFlag) Set(s string) (err error) {
+	sizes := (*ss.sizes)[:0]
+	for _, part := range strings.Fields(s) {
+		var sz image.Point
+		if i := strings.Index(part, ","); i > 0 {
+			sz.X, err = strconv.Atoi(part[:i])
+			if err == nil {
+				sz.Y, err = strconv.Atoi(part[i+1:])
+			}
+		} else {
+			sz.X, err = strconv.Atoi(part)
+			sz.Y = sz.X
+		}
+		if err != nil {
+			return err
+		}
+		sizes = append(sizes, sz)
+	}
+	*ss.sizes = sizes
+	return err
+}
+
 func init() {
-	flag.IntVar(&genMin, "nmin", genMin,
+	flag.Int64Var(&genSeed, "gen.seed", genSeed, "seed for generating test data")
+	flag.Var(sizesFlag{sizes: &genSizes}, "gen.sizes", "world sizes for generating test data")
+	flag.IntVar(&genMin, "gen.nmin", genMin,
 		"minimum N value for generative tests and benchmarks")
-	flag.IntVar(&genMax, "nmax", genMax,
+	flag.IntVar(&genMax, "gen.nmax", genMax,
 		"maximum N value for generative tests and benchmarks")
-	flag.IntVar(&genStep, "nstep", genStep,
+	flag.IntVar(&genStep, "gen.nstep", genStep,
 		"linear N step size for generative tests and benchmarks")
-	flag.Var(&genSteps, "nsteps",
-		"number of linear steps to take for generative tests and benchmarks")
+	flag.Var(&genSteps, "gen.nsteps", "convenience for setting -gen.nstep")
 }
 
 var staticTestCases = []testCase{
@@ -218,24 +267,6 @@ var staticTestCases = []testCase{
 	},
 }
 
-var genTestCases = []testCase{
-	{
-		seed: 0,
-		w:    16,
-		h:    10,
-	},
-	{
-		seed: 0,
-		w:    32,
-		h:    32,
-	},
-	{
-		seed: 0,
-		w:    64,
-		h:    64,
-	},
-}
-
 func TestSolve(t *testing.T) {
 	if _, err := Solve(nil); err != nil {
 		t.Logf("Solve() failed unequivocally: %v", err)
@@ -246,7 +277,12 @@ func TestSolve(t *testing.T) {
 		t.Run(tc.String(), tc.run(Solve).runTest)
 	}
 	if !t.Failed() {
-		for _, tc := range genTestCases {
+		for _, sz := range genSizes {
+			tc := testCase{
+				seed: genSeed,
+				w:    sz.X,
+				h:    sz.Y,
+			}
 			t.Run(tc.String(), tc.run(Solve).runTest)
 		}
 	}
@@ -263,7 +299,12 @@ func TestSolver_Solve(t *testing.T) {
 		t.Run(tc.String(), tc.run(sol.Solve).runTest)
 	}
 	if !t.Failed() {
-		for _, tc := range genTestCases {
+		for _, sz := range genSizes {
+			tc := testCase{
+				seed: genSeed,
+				w:    sz.X,
+				h:    sz.Y,
+			}
 			t.Run(tc.String(), tc.run(sol.Solve).runTest)
 		}
 	}
@@ -274,7 +315,12 @@ func BenchmarkSolver_Solve(b *testing.B) {
 	for _, tc := range staticTestCases {
 		b.Run(tc.String(), tc.run(sol.Solve).runBench)
 	}
-	for _, tc := range genTestCases {
+	for _, sz := range genSizes {
+		tc := testCase{
+			seed: genSeed,
+			w:    sz.X,
+			h:    sz.Y,
+		}
 		b.Run(tc.String(), tc.run(sol.Solve).runBench)
 	}
 }

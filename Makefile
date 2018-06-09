@@ -3,7 +3,7 @@ all: bin/gen bin/display
 NMIN=0
 NMAX=1024
 NSTEPS=32
-TESTFLAGS=-nmin $(NMIN) -nmax $(NMAX) -nsteps $(NSTEPS)
+TESTFLAGS=-gen.nmin $(NMIN) -gen.nmax $(NMAX) -gen.nsteps $(NSTEPS)
 
 test:
 	go test -v . $(TESTFLAGS)
