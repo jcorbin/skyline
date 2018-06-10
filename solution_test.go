@@ -24,13 +24,35 @@ var (
 	genMin   = 0
 	genMax   = 1024
 	genStep  = 32
-	genSeed  = int64(0)
+	genSeeds []int64
 	genSizes = []image.Point{
 		image.Pt(16, 16),
 		image.Pt(32, 32),
 		image.Pt(64, 64),
 	}
 )
+
+type _genSeeds struct{}
+
+func (gs _genSeeds) String() string {
+	parts := make([]string, len(genSeeds))
+	for i, seed := range genSeeds {
+		parts[i] = strconv.FormatInt(seed, 10)
+	}
+	return strings.Join(parts, ",")
+}
+
+func (gs _genSeeds) Set(s string) error {
+	genSeeds = genSeeds[:0]
+	for _, part := range strings.Split(s, ",") {
+		seed, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return err
+		}
+		genSeeds = append(genSeeds, seed)
+	}
+	return nil
+}
 
 type _genSteps struct{}
 
@@ -49,8 +71,6 @@ func (gs _genSteps) Set(s string) error {
 	genStep = w / n
 	return nil
 }
-
-var genSteps = _genSteps{}
 
 type sizesFlag struct {
 	sizes *[]image.Point
@@ -95,7 +115,7 @@ func (ss sizesFlag) Set(s string) (err error) {
 }
 
 func init() {
-	flag.Int64Var(&genSeed, "gen.seed", genSeed, "seed for generating test data")
+	flag.Var(_genSeeds{}, "gen.seeds", "custom seed(s) for generating test data")
 	flag.Var(sizesFlag{sizes: &genSizes}, "gen.sizes", "world sizes for generating test data")
 	flag.IntVar(&genMin, "gen.nmin", genMin,
 		"minimum N value for generative tests and benchmarks")
@@ -103,7 +123,7 @@ func init() {
 		"maximum N value for generative tests and benchmarks")
 	flag.IntVar(&genStep, "gen.nstep", genStep,
 		"linear N step size for generative tests and benchmarks")
-	flag.Var(&genSteps, "gen.nsteps", "convenience for setting -gen.nstep")
+	flag.Var(_genSteps{}, "gen.nsteps", "convenience for setting -gen.nstep")
 }
 
 var staticTestCases = []testCase{
@@ -273,7 +293,26 @@ func startGen(next func() (testCase, bool)) (func() (testCase, bool), testCase, 
 }
 
 func genCases() func() (testCase, bool) {
-	return genSizeCases(genSeed, genSizes...)
+	if len(genSeeds) == 0 {
+		return genSizeCases(0, genSizes...)
+	}
+	i := 0
+	var nextSize func() (testCase, bool)
+	return func() (tc testCase, ok bool) {
+		if nextSize != nil {
+			tc, ok = nextSize()
+			if !ok && i < len(genSeeds) {
+				nextSize = nil
+			}
+		}
+		if nextSize == nil && i < len(genSeeds) {
+			seed := genSeeds[i]
+			i++
+			nextSize = genSizeCases(seed, genSizes...)
+			tc, ok = nextSize()
+		}
+		return tc, ok
+	}
 }
 
 func genSizeCases(seed int64, sizes ...image.Point) func() (testCase, bool) {
