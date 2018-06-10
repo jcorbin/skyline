@@ -86,17 +86,17 @@ func (ss sizesFlag) String() string {
 		if sz.X == sz.Y {
 			parts[i] = fmt.Sprintf("%v", sz.X)
 		} else {
-			parts[i] = fmt.Sprintf("%v,%v", sz.X, sz.Y)
+			parts[i] = fmt.Sprintf("%vx%v", sz.X, sz.Y)
 		}
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(parts, ",")
 }
 
 func (ss sizesFlag) Set(s string) (err error) {
 	sizes := (*ss.sizes)[:0]
-	for _, part := range strings.Fields(s) {
+	for _, part := range strings.Split(s, ",") {
 		var sz image.Point
-		if i := strings.Index(part, ","); i > 0 {
+		if i := strings.Index(part, "x"); i > 0 {
 			sz.X, err = strconv.Atoi(part[:i])
 			if err == nil {
 				sz.Y, err = strconv.Atoi(part[i+1:])
