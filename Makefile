@@ -1,9 +1,12 @@
 all: bin/gen bin/display
 
+GENSEEDS=0
+GENSIZES=16,32,64
 NMIN=0
 NMAX=1024
 NSTEPS=32
-TESTFLAGS=-gen.nmin $(NMIN) -gen.nmax $(NMAX) -gen.nsteps $(NSTEPS)
+
+TESTFLAGS=-gen.seeds $(GENSEEDS) -gen.sizes $(GENSIZES) -gen.nmin $(NMIN) -gen.nmax $(NMAX) -gen.nsteps $(NSTEPS)
 
 test:
 	go test -v . $(TESTFLAGS)
