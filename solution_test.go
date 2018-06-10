@@ -267,6 +267,31 @@ var staticTestCases = []testCase{
 	},
 }
 
+func startGen(next func() (testCase, bool)) (func() (testCase, bool), testCase, bool) {
+	tc, ok := next()
+	return next, tc, ok
+}
+
+func genCases() func() (testCase, bool) {
+	return genSizeCases(genSeed, genSizes...)
+}
+
+func genSizeCases(seed int64, sizes ...image.Point) func() (testCase, bool) {
+	i := 0
+	return func() (testCase, bool) {
+		if i < len(sizes) {
+			sz := sizes[i]
+			i++
+			return testCase{
+				seed: seed,
+				w:    sz.X,
+				h:    sz.Y,
+			}, true
+		}
+		return testCase{}, false
+	}
+}
+
 func TestSolve(t *testing.T) {
 	if _, err := Solve(nil); err != nil {
 		t.Logf("Solve() failed unequivocally: %v", err)
@@ -277,12 +302,7 @@ func TestSolve(t *testing.T) {
 		t.Run(tc.String(), tc.run(Solve).runTest)
 	}
 	if !t.Failed() {
-		for _, sz := range genSizes {
-			tc := testCase{
-				seed: genSeed,
-				w:    sz.X,
-				h:    sz.Y,
-			}
+		for next, tc, ok := startGen(genCases()); ok; tc, ok = next() {
 			t.Run(tc.String(), tc.run(Solve).runTest)
 		}
 	}
@@ -299,12 +319,7 @@ func TestSolver_Solve(t *testing.T) {
 		t.Run(tc.String(), tc.run(sol.Solve).runTest)
 	}
 	if !t.Failed() {
-		for _, sz := range genSizes {
-			tc := testCase{
-				seed: genSeed,
-				w:    sz.X,
-				h:    sz.Y,
-			}
+		for next, tc, ok := startGen(genCases()); ok; tc, ok = next() {
 			t.Run(tc.String(), tc.run(sol.Solve).runTest)
 		}
 	}
@@ -315,12 +330,7 @@ func BenchmarkSolver_Solve(b *testing.B) {
 	for _, tc := range staticTestCases {
 		b.Run(tc.String(), tc.run(sol.Solve).runBench)
 	}
-	for _, sz := range genSizes {
-		tc := testCase{
-			seed: genSeed,
-			w:    sz.X,
-			h:    sz.Y,
-		}
+	for next, tc, ok := startGen(genCases()); ok; tc, ok = next() {
 		b.Run(tc.String(), tc.run(sol.Solve).runBench)
 	}
 }
