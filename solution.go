@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"log"
 
 	"github.com/jcorbin/skyline/internal"
 )
@@ -16,11 +17,12 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // Solver holds any state for solving the skyline problem, potentially re-using
 // previously allocated state memory.
 type Solver struct {
-	o1 []int
 	x1 []int
 	x2 []int
 	h  []int
-	op []int
+
+	o  []int
+	c  []int
 	rh []int
 
 	dir bldDir
@@ -42,149 +44,94 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		sol.x1 = append(sol.x1, data[i].Sides[0])
 		sol.x2 = append(sol.x2, data[i].Sides[1])
 		sol.h = append(sol.h, data[i].Height)
+		sol.o = append(sol.o, i)
 	}
 
-	for i, x := range sol.x1 {
-		oi, on := findXPoint(sol.o1, sol.x1[:i], x)
-		if oi == on {
-			sol.o1 = append(sol.o1, i)
-		} else {
-			sol.o1 = append(sol.o1, i)
-			copy(sol.o1[oi+1:], sol.o1[oi:])
-			sol.o1[oi] = i
-		}
-	}
+	heapify(sol.o, sol.x1)
 
 	sol.dir = dirNone
 	sol.cur = image.ZP
-	for o1i := 0; o1i < len(sol.o1); o1i++ {
-		// NOTE test probably doesn't catch edge case where several co-incident
-		// opens cause redundant co-linear points
-		i := sol.o1[o1i]
-		sol.closePast(i)
-		sol.open(i)
+	for len(sol.o) > 0 {
+		i := sol.o[0]
+
+		// closePast
+		bx := sol.x1[i]
+		for len(sol.c) > 0 {
+			j := sol.c[0]
+			if sol.x2[j] >= bx {
+				break
+			}
+			sol.c = heappop(sol.c, sol.x2)
+			sol.recomputerh(0)
+			if ah := sol.rh[j]; ah < sol.cur.Y {
+				sol.tox(sol.x2[j])
+				sol.goy(ah)
+			}
+		}
+
+		// open
+		if bh := sol.h[i]; bh > sol.cur.Y {
+			sol.tox(sol.x1[i])
+			sol.goy(bh)
+		}
+		sol.o, sol.c = heapshift(sol.o, sol.x1, sol.c, sol.x2)
+		sol.recomputerh(0)
 	}
-	sol.flush()
+
+	// flush
+	for len(sol.c) > 0 {
+		j := sol.c[0]
+		log.Printf("flush [%v] %v", j, data[j])
+		sol.c = heappop(sol.c, sol.x2)
+		sol.recomputerh(0)
+		if ah := sol.rh[j]; ah <= sol.cur.Y {
+			sol.tox(sol.x2[j])
+			sol.goy(ah)
+		}
+	}
 
 	return sol.res, nil
 }
 
 func (sol *Solver) alloc(n int) {
-	if cap(sol.o1) < n {
-		sol.o1 = make([]int, 0, n)
+	if cap(sol.x1) < n {
 		sol.x1 = make([]int, 0, n)
 		sol.x2 = make([]int, 0, n)
 		sol.h = make([]int, 0, n)
-		sol.op = make([]int, 0, n)
-		sol.rh = make([]int, 0, n)
+		sol.o = make([]int, 0, n)
+		sol.rh = make([]int, n)
 		sol.res = make([]image.Point, 0, 4*n)
 	} else {
-		sol.o1 = sol.o1[:0]
 		sol.x1 = sol.x1[:0]
 		sol.x2 = sol.x2[:0]
 		sol.h = sol.h[:0]
-		sol.op = sol.op[:0]
-		sol.rh = sol.rh[:0]
+		sol.o = sol.o[:0]
+		sol.rh = sol.rh[:n]
 		sol.res = sol.res[:0]
 	}
+	sol.c = sol.o[len(sol.o):]
 }
 
-func (sol *Solver) open(i int) {
-	if bh := sol.h[i]; bh > sol.cur.Y {
-		sol.tox(sol.x1[i])
-		sol.goy(bh)
-	}
-	sol.appendRH(i)
-}
-
-func (sol *Solver) appendRH(i int) {
-	// binary search for op-index where x2[i] goes
-	opi, nop := sol.findRH(sol.x2[i])
-
-	// add new data at the end
-	sol.op, sol.rh = append(sol.op, i), append(sol.rh, 0)
-	mh := sol.rh[opi]
-
-	if opi != nop {
-		// fix position of new data
-		if oh := sol.h[sol.op[opi]]; mh < oh {
-			mh = oh
-		}
-		copy(sol.op[opi+1:], sol.op[opi:])
-		copy(sol.rh[opi+1:], sol.rh[opi:])
-		sol.op[opi] = i
-		sol.rh[opi] = mh
-	}
-
-	// re-compute remaining height
-	for opi > 0 {
-		if oh := sol.h[sol.op[opi]]; mh < oh {
-			mh = oh
-		}
-		opi--
-		if mh > sol.rh[opi] {
-			sol.rh[opi] = mh
-		} else {
+func (sol *Solver) recomputerh(ci int) {
+	rh := 0
+	for _, child := range []int{2*ci + 1, 2*ci + 2} {
+		if child >= len(sol.c) {
 			break
 		}
+		sol.recomputerh(child)
+		id := sol.c[child]
+		rh = max3(rh, sol.h[id], sol.rh[id])
 	}
 }
 
-func (sol *Solver) findRH(x int) (_, _ int) {
-	opi, nop := 0, len(sol.op)
-	for j := nop; opi < j; {
-		h := int(uint(opi+j) >> 1)
-		if sol.x2[sol.op[h]] <= x {
-			opi = h + 1
-		} else {
-			j = h
-		}
+func max3(a, b, c int) int {
+	if a < b {
+		a = b
 	}
-	return opi, nop
-}
-
-func (sol *Solver) closePast(i int) {
-	bx := sol.x1[i]
-	opi := 0
-	for ; opi < len(sol.op); opi++ {
-		j := sol.op[opi]
-		if sol.x2[j] >= bx {
-			break
-		}
-		if ah := sol.rh[opi]; ah < sol.cur.Y {
-			sol.tox(sol.x2[j])
-			sol.goy(ah)
-		}
+	if a < c {
+		a = c
 	}
-	sol.op = sol.op[:copy(sol.op, sol.op[opi:])]
-	sol.rh = sol.rh[:copy(sol.rh, sol.rh[opi:])]
-}
-
-func (sol *Solver) flush() {
-	opi := 0
-	for ; opi < len(sol.op); opi++ {
-		j := sol.op[opi]
-		if ah := sol.rh[opi]; ah < sol.cur.Y {
-			sol.tox(sol.x2[j])
-			sol.goy(ah)
-		}
-	}
-	sol.op = sol.op[:0]
-	sol.rh = sol.rh[:0]
-}
-
-func findXPoint(os, xs []int, x int) (_, _ int) {
-	oi := 0
-	on := len(os)
-	for j := on; oi < j; {
-		h := int(uint(oi+j) >> 1)
-		if xs[os[h]] <= x {
-			oi = h + 1
-		} else {
-			j = h
-		}
-	}
-	return oi, on
+	return a
 }
 
 type bldDir uint8
@@ -215,4 +162,51 @@ func (sol *Solver) tox(x int) {
 		}
 		sol.dir = dirHoriz
 	}
+}
+
+func heapify(ix, xs []int) {
+	n := len(ix)
+	for i := n/2 - 1; i >= 0; i-- {
+		heapdown(ix, xs, i, n)
+	}
+}
+
+func heapdown(ix, xs []int, i0, n int) bool {
+	i := i0
+	for {
+		j1 := 2*i + 1
+		if j1 >= n || j1 < 0 { // j1 < 0 after int overflow
+			break
+		}
+		j := j1 // left child
+		if j2 := j1 + 1; j2 < n && xs[ix[j2]] < xs[ix[j1]] {
+			j = j2 // = 2*i + 2  // right child
+		}
+		if xs[ix[j]] >= xs[ix[i]] {
+			break
+		}
+		ix[i], ix[j] = ix[j], ix[i]
+		i = j
+	}
+	return i > i0
+}
+
+func heappop(ix, xs []int) []int {
+	i := len(ix) - 1
+	if i > 0 {
+		ix[0], ix[i] = ix[i], ix[0]
+		heapdown(ix, xs, 0, i)
+	}
+	return ix[:i]
+}
+
+func heapshift(ix1, x1s, ix2, x2s []int) (_, _ []int) {
+	i := len(ix1) - 1
+	if i > 0 {
+		ix1[0], ix1[i] = ix1[i], ix1[0]
+		heapdown(ix1, x1s, 0, i)
+	}
+	ix1, ix2 = ix1[:i], ix1[i:i+len(ix2)+1]
+	heapdown(ix2, x2s, 0, len(ix2))
+	return ix1, ix2
 }
