@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -18,6 +19,112 @@ import (
 	. "github.com/jcorbin/skyline"
 	"github.com/jcorbin/skyline/internal"
 )
+
+var (
+	genMin   = 0
+	genMax   = 1024
+	genStep  = 32
+	genSeeds []int64
+	genSizes = []image.Point{
+		image.Pt(16, 16),
+		image.Pt(32, 32),
+		image.Pt(64, 64),
+	}
+)
+
+type _genSeeds struct{}
+
+func (gs _genSeeds) String() string {
+	parts := make([]string, len(genSeeds))
+	for i, seed := range genSeeds {
+		parts[i] = strconv.FormatInt(seed, 10)
+	}
+	return strings.Join(parts, ",")
+}
+
+func (gs _genSeeds) Set(s string) error {
+	genSeeds = genSeeds[:0]
+	for _, part := range strings.Split(s, ",") {
+		seed, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return err
+		}
+		genSeeds = append(genSeeds, seed)
+	}
+	return nil
+}
+
+type _genSteps struct{}
+
+func (gs _genSteps) String() string {
+	w := genMax - genMin
+	n := (w + genStep - 1) / genStep
+	return strconv.Itoa(n)
+}
+
+func (gs _genSteps) Set(s string) error {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return err
+	}
+	w := genMax - genMin
+	genStep = w / n
+	return nil
+}
+
+type sizesFlag struct {
+	sizes *[]image.Point
+}
+
+func (ss sizesFlag) String() string {
+	var sizes []image.Point
+	if ss.sizes != nil {
+		sizes = *ss.sizes
+	}
+	parts := make([]string, len(sizes))
+	for i, sz := range sizes {
+		if sz.X == sz.Y {
+			parts[i] = fmt.Sprintf("%v", sz.X)
+		} else {
+			parts[i] = fmt.Sprintf("%vx%v", sz.X, sz.Y)
+		}
+	}
+	return strings.Join(parts, ",")
+}
+
+func (ss sizesFlag) Set(s string) (err error) {
+	sizes := (*ss.sizes)[:0]
+	for _, part := range strings.Split(s, ",") {
+		var sz image.Point
+		if i := strings.Index(part, "x"); i > 0 {
+			sz.X, err = strconv.Atoi(part[:i])
+			if err == nil {
+				sz.Y, err = strconv.Atoi(part[i+1:])
+			}
+		} else {
+			sz.X, err = strconv.Atoi(part)
+			sz.Y = sz.X
+		}
+		if err != nil {
+			return err
+		}
+		sizes = append(sizes, sz)
+	}
+	*ss.sizes = sizes
+	return err
+}
+
+func init() {
+	flag.Var(_genSeeds{}, "gen.seeds", "custom seed(s) for generating test data")
+	flag.Var(sizesFlag{sizes: &genSizes}, "gen.sizes", "world sizes for generating test data")
+	flag.IntVar(&genMin, "gen.nmin", genMin,
+		"minimum N value for generative tests and benchmarks")
+	flag.IntVar(&genMax, "gen.nmax", genMax,
+		"maximum N value for generative tests and benchmarks")
+	flag.IntVar(&genStep, "gen.nstep", genStep,
+		"linear N step size for generative tests and benchmarks")
+	flag.Var(_genSteps{}, "gen.nsteps", "convenience for setting -gen.nstep")
+}
 
 var staticTestCases = []testCase{
 	{
@@ -180,22 +287,48 @@ var staticTestCases = []testCase{
 	},
 }
 
-var genTestCases = []testCase{
-	{
-		seed: 0,
-		w:    16,
-		h:    10,
-	},
-	{
-		seed: 0,
-		w:    32,
-		h:    32,
-	},
-	{
-		seed: 0,
-		w:    64,
-		h:    64,
-	},
+func startGen(next func() (testCase, bool)) (func() (testCase, bool), testCase, bool) {
+	tc, ok := next()
+	return next, tc, ok
+}
+
+func genCases() func() (testCase, bool) {
+	if len(genSeeds) == 0 {
+		return genSizeCases(0, genSizes...)
+	}
+	i := 0
+	var nextSize func() (testCase, bool)
+	return func() (tc testCase, ok bool) {
+		if nextSize != nil {
+			tc, ok = nextSize()
+			if !ok && i < len(genSeeds) {
+				nextSize = nil
+			}
+		}
+		if nextSize == nil && i < len(genSeeds) {
+			seed := genSeeds[i]
+			i++
+			nextSize = genSizeCases(seed, genSizes...)
+			tc, ok = nextSize()
+		}
+		return tc, ok
+	}
+}
+
+func genSizeCases(seed int64, sizes ...image.Point) func() (testCase, bool) {
+	i := 0
+	return func() (testCase, bool) {
+		if i < len(sizes) {
+			sz := sizes[i]
+			i++
+			return testCase{
+				seed: seed,
+				w:    sz.X,
+				h:    sz.Y,
+			}, true
+		}
+		return testCase{}, false
+	}
 }
 
 func TestSolve(t *testing.T) {
@@ -208,7 +341,7 @@ func TestSolve(t *testing.T) {
 		t.Run(tc.String(), tc.run(Solve).runTest)
 	}
 	if !t.Failed() {
-		for _, tc := range genTestCases {
+		for next, tc, ok := startGen(genCases()); ok; tc, ok = next() {
 			t.Run(tc.String(), tc.run(Solve).runTest)
 		}
 	}
@@ -225,7 +358,7 @@ func TestSolver_Solve(t *testing.T) {
 		t.Run(tc.String(), tc.run(sol.Solve).runTest)
 	}
 	if !t.Failed() {
-		for _, tc := range genTestCases {
+		for next, tc, ok := startGen(genCases()); ok; tc, ok = next() {
 			t.Run(tc.String(), tc.run(sol.Solve).runTest)
 		}
 	}
@@ -236,7 +369,7 @@ func BenchmarkSolver_Solve(b *testing.B) {
 	for _, tc := range staticTestCases {
 		b.Run(tc.String(), tc.run(sol.Solve).runBench)
 	}
-	for _, tc := range genTestCases {
+	for next, tc, ok := startGen(genCases()); ok; tc, ok = next() {
 		b.Run(tc.String(), tc.run(sol.Solve).runBench)
 	}
 }
@@ -339,18 +472,12 @@ func (tr testCaseRun) doGenTest(t *testing.T) {
 }
 
 func (tr testCaseRun) doGenSearchTest(t *testing.T) (pass bool) {
-	const (
-		min  = 1
-		max  = 1024
-		step = 128
-	)
-
-	if tr.n = min; !t.Run(tr.String(), tr.doGenTest) {
+	if tr.n = genMin; !t.Run(tr.String(), tr.doGenTest) {
 		return false
 	}
 
 	pass = true
-	for tr.n = max; tr.n > min; tr.n -= step {
+	for tr.n = genMax; tr.n > genMin; tr.n -= genStep {
 		if !t.Run(tr.String(), tr.doGenTest) {
 			pass = false
 			break
@@ -360,8 +487,8 @@ func (tr testCaseRun) doGenSearchTest(t *testing.T) (pass bool) {
 		return true
 	}
 
-	sanity := max - min
-	for n := min; tr.n-n > 1; {
+	sanity := genMax - genMin
+	for n := genMin; tr.n-n > 1; {
 		sanity--
 		require.True(t, sanity > 0, "search looping infinitely")
 		lastN := tr.n
@@ -402,12 +529,7 @@ func (tr testCaseRun) doGenBench(b *testing.B) {
 }
 
 func (tr testCaseRun) doGenScaleBench(b *testing.B) {
-	const (
-		min  = 0
-		max  = 1024
-		step = 32
-	)
-	for tr.n = min; tr.n < max; tr.n += step {
+	for tr.n = genMin; tr.n <= genMax; tr.n += genStep {
 		b.Run(tr.String(), tr.doGenBench)
 	}
 }
