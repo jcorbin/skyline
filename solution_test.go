@@ -504,7 +504,7 @@ func (tr testCaseRun) doGenSearchTest(t *testing.T) (pass bool) {
 func (tr testCaseRun) runBench(b *testing.B) {
 	defer setupTestLogOutput(b).restore(os.Stderr)
 	if !tr.gen {
-		tr.doStaticBench(b)
+		tr.doBench(b)
 	} else if tr.n != 0 {
 		tr.doGenBench(b)
 	} else {
@@ -512,17 +512,13 @@ func (tr testCaseRun) runBench(b *testing.B) {
 	}
 }
 
-func (tr testCaseRun) doStaticBench(b *testing.B) {
-	data := make([]internal.Building, len(tr.data))
-	for i := 0; i < b.N; i++ {
-		copy(data, tr.data)
-		require.NoError(b, tr.solve(data), "expected solution to not fail")
-	}
-}
-
 func (tr testCaseRun) doGenBench(b *testing.B) {
 	tr.rng = rand.New(rand.NewSource(tr.seed))
 	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
+	tr.doBench(b)
+}
+
+func (tr testCaseRun) doBench(b *testing.B) {
 	data := make([]internal.Building, len(tr.data))
 	for i := 0; i < b.N; i++ {
 		copy(data, tr.data)
