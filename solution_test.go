@@ -513,8 +513,9 @@ func (tr testCaseRun) runBench(b *testing.B) {
 }
 
 func (tr testCaseRun) doStaticBench(b *testing.B) {
+	data := make([]internal.Building, len(tr.data))
 	for i := 0; i < b.N; i++ {
-		data := append([]internal.Building(nil), tr.data...)
+		copy(data, tr.data)
 		require.NoError(b, tr.solve(data), "expected solution to not fail")
 	}
 }
@@ -522,8 +523,9 @@ func (tr testCaseRun) doStaticBench(b *testing.B) {
 func (tr testCaseRun) doGenBench(b *testing.B) {
 	tr.rng = rand.New(rand.NewSource(tr.seed))
 	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
+	data := make([]internal.Building, len(tr.data))
 	for i := 0; i < b.N; i++ {
-		data := append([]internal.Building(nil), tr.data...)
+		copy(data, tr.data)
 		require.NoError(b, tr.solve(data), "expected solution to not fail")
 	}
 }
