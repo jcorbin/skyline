@@ -434,7 +434,7 @@ func (tr *testCaseRun) solve(data []internal.Building) (err error) {
 func (tr testCaseRun) runTest(t *testing.T) {
 	defer setupTestLogOutput(t).restore(os.Stderr)
 	if !tr.gen {
-		tr.doStaticTest(t)
+		tr.doTest(t)
 	} else if tr.n != 0 {
 		tr.doGenTest(t)
 	} else {
@@ -442,31 +442,31 @@ func (tr testCaseRun) runTest(t *testing.T) {
 	}
 }
 
-func (tr testCaseRun) doStaticTest(t *testing.T) {
+func (tr testCaseRun) doGenTest(t *testing.T) {
+	tr.rng = rand.New(rand.NewSource(tr.seed))
+	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
+	tr.doTest(t)
+}
+
+func (tr testCaseRun) doTest(t *testing.T) {
 	data := append([]internal.Building(nil), tr.data...)
 	require.NoError(t, tr.solve(data), "expected solution to not fail")
 	if !assert.NoError(t, plotSkyline(nil, tr.points, 0x00), "expected a valid skyline") {
 		t.Logf("building data: %v", tr.data)
 		t.Logf("solution points: %v", tr.points)
-	} else if !assert.Equal(t, tr.testCase.points, tr.points, "expected output points") {
+		return
+	}
+
+	if !tr.gen {
+		assert.Equal(t, tr.testCase.points, tr.points, "expected output points")
+	} else if assert.NoError(t, tr.buildPlots(), "unable to plot skyline") {
+		assert.True(t, grayEQ(tr.expectedSky, tr.actualSky), "expected same resulting sky")
+	}
+
+	if t.Failed() {
 		t.Logf("building data: %v", tr.data)
 		t.Logf("solution points: %v", tr.points)
 		assert.NoError(t, tr.buildPlots(), "unable to plot skyline")
-		tr.dumpPlots(t.Logf)
-	}
-}
-
-func (tr testCaseRun) doGenTest(t *testing.T) {
-	tr.rng = rand.New(rand.NewSource(tr.seed))
-	tr.data = internal.GenBuildings(tr.rng, tr.w, tr.h, tr.n)
-	data := append([]internal.Building(nil), tr.data...)
-	require.NoError(t, tr.solve(data), "expected solution to not fail")
-	ok := assert.NoError(t, tr.buildPlots(), "unable to plot skyline")
-	ok = ok && grayEQ(tr.expectedSky, tr.actualSky)
-	if !ok {
-		t.Fail()
-		t.Logf("building data: %v", tr.data)
-		t.Logf("solution points: %v", tr.points)
 		tr.dumpPlots(t.Logf)
 	}
 }
@@ -551,6 +551,9 @@ func (tr testCaseRun) dumpPlots(logf func(string, ...interface{})) {
 }
 
 func (tr *testCaseRun) buildPlots() error {
+	if tr.buildingPlot != nil || tr.skylinePlot != nil {
+		return nil
+	}
 	oob := image.Pt(tr.w+1, tr.h+1) // out-of-bounds fill starting point
 	tr.buildingPlot = image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
 	tr.skylinePlot = image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
