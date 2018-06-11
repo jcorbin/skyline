@@ -61,6 +61,7 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 			if sol.x2[j] >= bx {
 				break
 			}
+			log.Printf("close [%v] %v", j, data[j])
 			sol.c = heappop(sol.c, sol.x2)
 			sol.recomputerh(0)
 			if ah := sol.rh[j]; ah < sol.cur.Y {
@@ -70,6 +71,7 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		}
 
 		// open
+		log.Printf("open [%v] %v", i, data[i])
 		if bh := sol.h[i]; bh > sol.cur.Y {
 			sol.tox(sol.x1[i])
 			sol.goy(bh)
@@ -86,7 +88,7 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		sol.recomputerh(0)
 		if ah := sol.rh[j]; ah <= sol.cur.Y {
 			sol.tox(sol.x2[j])
-			sol.goy(ah)
+			sol.toy(ah)
 		}
 	}
 
@@ -142,8 +144,20 @@ const (
 	dirHoriz
 )
 
+func (sol *Solver) gox(x int) {
+	sol.cur.X = x
+	log.Printf("gox %v", sol.cur)
+	if sol.dir == dirHoriz {
+		sol.res[len(sol.res)-1].X = x
+	} else {
+		sol.res = append(sol.res, sol.cur)
+	}
+	sol.dir = dirHoriz
+}
+
 func (sol *Solver) goy(y int) {
 	sol.cur.Y = y
+	log.Printf("goy %v", sol.cur)
 	if sol.dir == dirVert {
 		sol.res[len(sol.res)-1].Y = y
 	} else {
@@ -154,13 +168,13 @@ func (sol *Solver) goy(y int) {
 
 func (sol *Solver) tox(x int) {
 	if x != sol.cur.X {
-		sol.cur.X = x
-		if sol.dir == dirHoriz {
-			sol.res[len(sol.res)-1].X = x
-		} else {
-			sol.res = append(sol.res, sol.cur)
-		}
-		sol.dir = dirHoriz
+		sol.gox(x)
+	}
+}
+
+func (sol *Solver) toy(y int) {
+	if y != sol.cur.Y {
+		sol.goy(y)
 	}
 }
 
