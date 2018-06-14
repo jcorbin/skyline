@@ -395,6 +395,7 @@ type testCaseRun struct {
 
 	points []image.Point
 
+	// TODO re-use gray Pix data and byte buffer space
 	buildingPlot, skylinePlot *image.Gray
 	expectedSky, actualSky    *image.Gray
 	bufa, bufb, bufc          *bytes.Buffer
