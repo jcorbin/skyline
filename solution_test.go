@@ -404,6 +404,21 @@ func (tc testCase) isGen() bool {
 	return tc.w > 0 && tc.h > 0
 }
 
+func (tc testCase) maxPoint() image.Point {
+	pt := image.Pt(tc.w, tc.h)
+	if pt == image.ZP {
+		for _, b := range tc.data {
+			if pt.X < b.Sides[1] {
+				pt.X = b.Sides[1]
+			}
+			if pt.Y < b.Height {
+				pt.Y = b.Height
+			}
+		}
+	}
+	return pt
+}
+
 func (tc testCase) String() string {
 	if tc.name != "" {
 		// manually named case
@@ -554,9 +569,10 @@ func (tr *testCaseRun) buildPlots() error {
 	if tr.buildingPlot != nil || tr.skylinePlot != nil {
 		return nil
 	}
-	oob := image.Pt(tr.w+1, tr.h+1) // out-of-bounds fill starting point
-	tr.buildingPlot = image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
-	tr.skylinePlot = image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
+	oob := tr.maxPoint().Add(image.Pt(1, 1)) // out-of-bounds fill starting point
+	box := image.Rectangle{Max: oob.Add(image.Pt(1, 1))}
+	tr.buildingPlot = image.NewGray(box)
+	tr.skylinePlot = image.NewGray(box)
 	plotBuildings(tr.buildingPlot, tr.data, 0x80)
 	if err := plotSkyline(tr.skylinePlot, tr.points, 0x80); err != nil {
 		return err
