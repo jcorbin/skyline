@@ -1,6 +1,8 @@
 package main_test
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"image"
@@ -395,6 +397,7 @@ type testCaseRun struct {
 
 	buildingPlot, skylinePlot *image.Gray
 	expectedSky, actualSky    *image.Gray
+	bufa, bufb, bufc          *bytes.Buffer
 }
 
 func (tc testCase) isGen() bool {
@@ -402,6 +405,21 @@ func (tc testCase) isGen() bool {
 		return false
 	}
 	return tc.w > 0 && tc.h > 0
+}
+
+func (tc testCase) maxPoint() image.Point {
+	pt := image.Pt(tc.w, tc.h)
+	if pt == image.ZP {
+		for _, b := range tc.data {
+			if pt.X < b.Sides[1] {
+				pt.X = b.Sides[1]
+			}
+			if pt.Y < b.Height {
+				pt.Y = b.Height
+			}
+		}
+	}
+	return pt
 }
 
 func (tc testCase) String() string {
@@ -423,6 +441,9 @@ func (tc testCase) run(sol func([]internal.Building) ([]image.Point, error)) tes
 		testCase: tc,
 		sol:      sol,
 		gen:      tc.isGen(),
+		bufa:     bytes.NewBuffer(nil),
+		bufb:     bytes.NewBuffer(nil),
+		bufc:     bytes.NewBuffer(nil),
 	}
 }
 
@@ -535,18 +556,24 @@ func (tr testCaseRun) doGenScaleBench(b *testing.B) {
 func (tr testCaseRun) dumpPlots(logf func(string, ...interface{})) {
 	dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
 	if tr.buildingPlot != nil && tr.skylinePlot != nil {
-		logf("plots:\n%s", strings.Join(sideBySide(
-			"building boxes", "skyline",
-			dump(tr.buildingPlot, dumpRunes),
-			dump(tr.skylinePlot, dumpRunes),
-		), "\n"))
+		tr.bufc.WriteString("plots:\n")
+		dump(tr.bufa, tr.buildingPlot, dumpRunes)
+		dump(tr.bufb, tr.skylinePlot, dumpRunes)
+		sideBySide(tr.bufc, "building boxes", "skyline", tr.bufa, tr.bufb)
+		logf(tr.bufc.String())
+		tr.bufa.Reset()
+		tr.bufb.Reset()
+		tr.bufc.Reset()
 	}
 	if tr.expectedSky != nil && tr.actualSky != nil {
-		logf("skies:\n%s", strings.Join(sideBySide(
-			"expected", "actual",
-			dump(tr.expectedSky, dumpRunes),
-			dump(tr.actualSky, dumpRunes),
-		), "\n"))
+		tr.bufc.WriteString("skies:\n")
+		dump(tr.bufa, tr.expectedSky, dumpRunes)
+		dump(tr.bufb, tr.actualSky, dumpRunes)
+		sideBySide(tr.bufc, "expected", "actual", tr.bufa, tr.bufb)
+		logf(tr.bufc.String())
+		tr.bufa.Reset()
+		tr.bufb.Reset()
+		tr.bufc.Reset()
 	}
 }
 
@@ -554,9 +581,10 @@ func (tr *testCaseRun) buildPlots() error {
 	if tr.buildingPlot != nil || tr.skylinePlot != nil {
 		return nil
 	}
-	oob := image.Pt(tr.w+1, tr.h+1) // out-of-bounds fill starting point
-	tr.buildingPlot = image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
-	tr.skylinePlot = image.NewGray(image.Rect(0, 0, oob.X+1, oob.Y+1))
+	oob := tr.maxPoint().Add(image.Pt(1, 1)) // out-of-bounds fill starting point
+	box := image.Rectangle{Max: oob.Add(image.Pt(1, 1))}
+	tr.buildingPlot = image.NewGray(box)
+	tr.skylinePlot = image.NewGray(box)
 	plotBuildings(tr.buildingPlot, tr.data, 0x80)
 	if err := plotSkyline(tr.skylinePlot, tr.points, 0x80); err != nil {
 		return err
@@ -590,58 +618,94 @@ func (tlo testLogOutput) Write(p []byte) (int, error) {
 	return 0, nil
 }
 
-func sideBySide(aTitle, bTitle string, a, b []string) []string {
-	var res []string
-	if len(b) > len(a) {
-		res = make([]string, 0, len(b)+1)
-	} else {
-		res = make([]string, 0, len(a)+1)
-	}
-	var aw, bw int
-	for _, as := range a {
-		if len(as) > aw {
-			aw = len(as)
+func scanMaxLineLen(r io.Reader) (lines, maxLen int) {
+	for sc := bufio.NewScanner(r); sc.Scan(); {
+		lines++
+		if n := len(sc.Bytes()); maxLen < n {
+			maxLen = n
 		}
 	}
-	for _, bs := range b {
-		if len(bs) > bw {
-			bw = len(bs)
-		}
-	}
-	if aTitle != "" || bTitle != "" {
-		res = append(res, fmt.Sprintf("| % *s | % *s |", aw, aTitle, bw, bTitle))
-	}
-	for i := 0; i < len(a) || i < len(b); i++ {
-		var as, bs string
-		if i < len(a) {
-			as = a[i]
-		}
-		if i < len(b) {
-			bs = b[i]
-		}
-		res = append(res, fmt.Sprintf("| % *s | % *s |", aw, as, bw, bs))
-	}
-	return res
+	return lines, maxLen
 }
 
-func dump(gr *image.Gray, tr map[uint8]rune) []string {
-	res := make([]string, gr.Rect.Dy(), gr.Rect.Dy()+1)
-	row := make([]rune, gr.Rect.Dx())
-	for y := 0; y < len(res); y++ {
-		for x := 0; x < len(row); x++ {
+func sideBySide(buf *bytes.Buffer, aTitle, bTitle string, a, b *bytes.Buffer) {
+	al, aw := scanMaxLineLen(bytes.NewReader(a.Bytes()))
+	bl, bw := scanMaxLineLen(bytes.NewReader(b.Bytes()))
+	if aw < len(aTitle) {
+		aw = len(aTitle)
+	}
+	if bw < len(bTitle) {
+		bw = len(bTitle)
+	}
+	nl := al
+	if nl < bl {
+		nl = bl
+	}
+
+	w := 2 + aw + 3 + bw + 2 // "| " + A[i] + " | " + B[i] + " |"
+	buf.Grow(nl * w)
+
+	if aTitle != "" || bTitle != "" {
+		buf.WriteString("| ")
+		for i := len(aTitle); i < aw; i++ {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString(aTitle)
+		buf.WriteString(" | ")
+		for i := len(bTitle); i < bw; i++ {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString(bTitle)
+		buf.WriteString(" |\n")
+	}
+
+	as := bufio.NewScanner(bytes.NewReader(a.Bytes()))
+	bs := bufio.NewScanner(bytes.NewReader(b.Bytes()))
+
+	for {
+		var atok, btok []byte
+		if as.Scan() {
+			atok = as.Bytes()
+		}
+		if bs.Scan() {
+			btok = bs.Bytes()
+		}
+		if len(atok) == 0 && len(btok) == 0 {
+			break
+		}
+		buf.WriteString("| ")
+		for i := len(atok); i < aw; i++ {
+			buf.WriteByte(' ')
+		}
+		buf.Write(atok)
+		buf.WriteString(" | ")
+		for i := len(btok); i < bw; i++ {
+			buf.WriteByte(' ')
+		}
+		buf.Write(btok)
+		buf.WriteString(" |\n")
+	}
+}
+
+func dump(buf *bytes.Buffer, gr *image.Gray, tr map[uint8]rune) {
+	dx, dy := gr.Rect.Dx(), gr.Rect.Dy()
+	buf.Grow((5 + dx + 1) * (dy + 1))
+	for y := dy - 1; y >= 0; y-- {
+		fmt.Fprintf(buf, "% 3d: ", y)
+		for x := 0; x < dx; x++ {
 			if r, def := tr[gr.GrayAt(x, y).Y]; def {
-				row[x] = r
+				buf.WriteRune(r)
 			} else {
-				row[x] = '?'
+				buf.WriteByte('?')
 			}
 		}
-		res[len(res)-1-y] = fmt.Sprintf("% 3d: %s", y, string(row))
+		buf.WriteByte('\n')
 	}
-	for x := 0; x < len(row); x++ {
-		row[x] = rune(strconv.FormatInt(int64(x)%10, 10)[0])
+	buf.WriteString("     ")
+	for x := 0; x < dx; x++ {
+		buf.WriteByte(strconv.FormatInt(int64(x)%10, 10)[0])
 	}
-	res = append(res, fmt.Sprintf("     %s", string(row)))
-	return res
+	buf.WriteByte('\n')
 }
 
 func plotBuildings(gr *image.Gray, bs []internal.Building, val uint8) {

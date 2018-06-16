@@ -15,6 +15,11 @@ type Building struct {
 	Height int
 }
 
+// Bldg is a convenience constructor for Building.
+func Bldg(x1, x2, h int) Building {
+	return Building{[2]int{x1, x2}, h}
+}
+
 // ScanBuildings reads gen-created csv output; it expects a "x1,x2,h" header
 // line, and then parses integer triples from the remaining lines. Any (maybe
 // partial) results and error encountered are returned .
