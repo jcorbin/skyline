@@ -543,7 +543,10 @@ func (tr testCaseRun) doBench(b *testing.B) {
 	data := make([]internal.Building, len(tr.data))
 	for i := 0; i < b.N; i++ {
 		copy(data, tr.data)
-		require.NoError(b, tr.solve(data), "expected solution to not fail")
+		if err := tr.solve(data); err != nil {
+			b.Logf("solution failed with unexpected error: %v", err)
+			b.FailNow()
+		}
 	}
 }
 
