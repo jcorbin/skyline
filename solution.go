@@ -41,9 +41,9 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 
 	sol.alloc(len(data), (maxx-minx)+1)
 
-	for _, b := range data {
-		for x1, x2 := b.Sides[0]-minx, b.Sides[1]-minx; x1 <= x2; x1++ {
-			if h := b.Height; sol.hs[x1] < h {
+	for i := 0; i < len(data); i++ {
+		for x1, x2 := data[i].Sides[0]-minx, data[i].Sides[1]-minx; x1 <= x2; x1++ {
+			if h := data[i].Height; sol.hs[x1] < h {
 				sol.hs[x1] = h
 			}
 		}
