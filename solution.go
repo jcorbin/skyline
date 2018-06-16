@@ -50,29 +50,25 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 	x := 0
 	for ; x <= maxx; x++ {
 		if h := sol.hs[x]; h < sol.cur.Y {
-			sol.gox(x - 1)
-			sol.goy(h)
+			sol.goxy(x-1, h)
 		} else if h > sol.cur.Y {
-			sol.gox(x)
-			sol.goy(h)
+			sol.goxy(x, h)
 		}
 	}
 	if sol.cur.Y != 0 {
-		sol.gox(maxx)
-		sol.goy(0)
+		sol.goxy(maxx, 0)
 	}
 
 	return sol.res, nil
 }
 
-func (sol *Solver) gox(x int) {
-	sol.cur.X = x
-	sol.res = append(sol.res, sol.cur)
-}
-
-func (sol *Solver) goy(y int) {
-	sol.cur.Y = y
-	sol.res = append(sol.res, sol.cur)
+func (sol *Solver) goxy(x, y int) {
+	pt1 := sol.cur
+	pt1.X = x
+	pt2 := pt1
+	pt2.Y = y
+	sol.res = append(sol.res, pt1, pt2)
+	sol.cur = pt2
 }
 
 func (sol *Solver) alloc(n, maxx int) {
