@@ -28,37 +28,42 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		return nil, nil
 	}
 
-	maxx := 0
-	for _, b := range data {
-		if x := b.Sides[1]; x > maxx {
+	minx := data[0].Sides[0]
+	maxx := data[0].Sides[1]
+	for i := 0; i < len(data); i++ {
+		if x := data[i].Sides[0]; minx > x {
+			minx = x
+		}
+		if x := data[i].Sides[1]; maxx < x {
 			maxx = x
 		}
 	}
 
-	sol.alloc(len(data), maxx+1)
+	sol.alloc(len(data), (maxx-minx)+1)
 
 	for _, b := range data {
-		for x1, x2 := b.Sides[0], b.Sides[1]; x1 <= x2; x1++ {
+		for x1, x2 := b.Sides[0]-minx, b.Sides[1]-minx; x1 <= x2; x1++ {
 			if h := b.Height; sol.hs[x1] < h {
 				sol.hs[x1] = h
 			}
 		}
 	}
 
-	return traceHeights(sol.res, sol.hs), nil
+	return traceHeights(sol.res, minx, sol.hs), nil
 }
 
-func traceHeights(res []image.Point, hs []int) []image.Point {
+func traceHeights(res []image.Point, minx int, hs []int) []image.Point {
 	ch := 0
-	x := 0
-	for ; x < len(hs); x++ {
-		if h := hs[x]; h < ch {
+	x := minx
+	for i := 0; i < len(hs); i++ {
+		if h := hs[i]; h < ch {
 			res = append(res, image.Pt(x-1, ch), image.Pt(x-1, h))
 			ch = h
 		} else if h > ch {
 			res = append(res, image.Pt(x, ch), image.Pt(x, h))
 			ch = h
 		}
+		x++
 	}
 	if ch != 0 {
 		res = append(res, image.Pt(x-1, ch), image.Pt(x-1, 0))
