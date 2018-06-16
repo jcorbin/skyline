@@ -16,7 +16,6 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // Solver holds any state for solving the skyline problem, potentially re-using
 // previously allocated state memory.
 type Solver struct {
-	hs  []int
 	res []image.Point
 }
 
@@ -39,20 +38,21 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		}
 	}
 
-	sol.alloc(len(data), (maxx-minx)+1)
+	hs := make([]int, (maxx-minx)+1)
 
 	for i := 0; i < len(data); i++ {
 		for x1, x2 := data[i].Sides[0]-minx, data[i].Sides[1]-minx; x1 <= x2; x1++ {
-			if h := data[i].Height; sol.hs[x1] < h {
-				sol.hs[x1] = h
+			if h := data[i].Height; hs[x1] < h {
+				hs[x1] = h
 			}
 		}
 	}
 
-	return traceHeights(sol.res, minx, sol.hs), nil
-}
+	if m := 4 * len(data); m > cap(sol.res) {
+		sol.res = make([]image.Point, 0, m)
+	}
 
-func traceHeights(res []image.Point, minx int, hs []int) []image.Point {
+	res := sol.res
 	ch := 0
 	x := minx
 	for i := 0; i < len(hs); i++ {
@@ -68,22 +68,6 @@ func traceHeights(res []image.Point, minx int, hs []int) []image.Point {
 	if ch != 0 {
 		res = append(res, image.Pt(x-1, ch), image.Pt(x-1, 0))
 	}
-	return res
-}
 
-func (sol *Solver) alloc(n, hn int) {
-	if m := 4 * n; m <= cap(sol.res) {
-		sol.res = sol.res[:0]
-	} else {
-		sol.res = make([]image.Point, 0, m)
-	}
-
-	if hn <= cap(sol.hs) {
-		sol.hs = sol.hs[:hn]
-		for i := range sol.hs {
-			sol.hs[i] = 0
-		}
-	} else {
-		sol.hs = make([]int, hn)
-	}
+	return res, nil
 }
