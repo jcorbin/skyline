@@ -35,7 +35,7 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		}
 	}
 
-	sol.alloc(len(data), maxx)
+	sol.alloc(len(data), maxx+1)
 
 	for _, b := range data {
 		x1, x2, h := b.Sides[0], b.Sides[1], b.Height
@@ -67,14 +67,14 @@ func traceHeights(res []image.Point, hs []int) []image.Point {
 	return res
 }
 
-func (sol *Solver) alloc(n, maxx int) {
+func (sol *Solver) alloc(n, hn int) {
 	if m := 4 * n; m <= cap(sol.res) {
 		sol.res = sol.res[:0]
 	} else {
 		sol.res = make([]image.Point, 0, m)
 	}
 
-	if hn := maxx + 1; hn <= cap(sol.hs) {
+	if hn <= cap(sol.hs) {
 		sol.hs = sol.hs[:hn]
 		for i := range sol.hs {
 			sol.hs[i] = 0
