@@ -17,7 +17,6 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // previously allocated state memory.
 type Solver struct {
 	hs  []int
-	cur image.Point
 	res []image.Point
 }
 
@@ -47,28 +46,25 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		}
 	}
 
-	x := 0
-	for ; x <= maxx; x++ {
-		if h := sol.hs[x]; h < sol.cur.Y {
-			sol.goxy(x-1, h)
-		} else if h > sol.cur.Y {
-			sol.goxy(x, h)
-		}
-	}
-	if sol.cur.Y != 0 {
-		sol.goxy(maxx, 0)
-	}
-
-	return sol.res, nil
+	return traceHeights(sol.res, sol.hs), nil
 }
 
-func (sol *Solver) goxy(x, y int) {
-	pt1 := sol.cur
-	pt1.X = x
-	pt2 := pt1
-	pt2.Y = y
-	sol.res = append(sol.res, pt1, pt2)
-	sol.cur = pt2
+func traceHeights(res []image.Point, hs []int) []image.Point {
+	ch := 0
+	x := 0
+	for ; x < len(hs); x++ {
+		if h := hs[x]; h < ch {
+			res = append(res, image.Pt(x-1, ch), image.Pt(x-1, h))
+			ch = h
+		} else if h > ch {
+			res = append(res, image.Pt(x, ch), image.Pt(x, h))
+			ch = h
+		}
+	}
+	if ch != 0 {
+		res = append(res, image.Pt(x-1, ch), image.Pt(x-1, 0))
+	}
+	return res
 }
 
 func (sol *Solver) alloc(n, maxx int) {
