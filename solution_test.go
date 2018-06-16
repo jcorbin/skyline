@@ -541,6 +541,7 @@ func (tr testCaseRun) doGenBench(b *testing.B) {
 
 func (tr testCaseRun) doBench(b *testing.B) {
 	data := make([]internal.Building, len(tr.data))
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		copy(data, tr.data)
 		if err := tr.solve(data); err != nil {
