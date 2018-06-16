@@ -16,8 +16,6 @@ func Solve(data []internal.Building) ([]image.Point, error) {
 // Solver holds any state for solving the skyline problem, potentially re-using
 // previously allocated state memory.
 type Solver struct {
-	hs  []int
-	cur image.Point
 	res []image.Point
 }
 
@@ -29,65 +27,47 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		return nil, nil
 	}
 
-	maxx := 0
-	for _, b := range data {
-		if x := b.Sides[1]; x > maxx {
+	minx := data[0].Sides[0]
+	maxx := data[0].Sides[1]
+	for i := 0; i < len(data); i++ {
+		if x := data[i].Sides[0]; minx > x {
+			minx = x
+		}
+		if x := data[i].Sides[1]; maxx < x {
 			maxx = x
 		}
 	}
 
-	sol.alloc(len(data), maxx)
+	hs := make([]int, (maxx-minx)+1)
 
-	for _, b := range data {
-		x1, x2, h := b.Sides[0], b.Sides[1], b.Height
-		for x := x1; x <= x2; x++ {
-			if sol.hs[x] < h {
-				sol.hs[x] = h
+	for i := 0; i < len(data); i++ {
+		for x1, x2 := data[i].Sides[0]-minx, data[i].Sides[1]-minx; x1 <= x2; x1++ {
+			if h := data[i].Height; hs[x1] < h {
+				hs[x1] = h
 			}
 		}
 	}
 
-	x := 0
-	for ; x <= maxx; x++ {
-		if h := sol.hs[x]; h < sol.cur.Y {
-			sol.gox(x - 1)
-			sol.goy(h)
-		} else if h > sol.cur.Y {
-			sol.gox(x)
-			sol.goy(h)
-		}
-	}
-	if sol.cur.Y != 0 {
-		sol.gox(maxx)
-		sol.goy(0)
-	}
-
-	return sol.res, nil
-}
-
-func (sol *Solver) gox(x int) {
-	sol.cur.X = x
-	sol.res = append(sol.res, sol.cur)
-}
-
-func (sol *Solver) goy(y int) {
-	sol.cur.Y = y
-	sol.res = append(sol.res, sol.cur)
-}
-
-func (sol *Solver) alloc(n, maxx int) {
-	if m := 4 * n; m <= cap(sol.res) {
-		sol.res = sol.res[:0]
-	} else {
+	if m := 4 * len(data); m > cap(sol.res) {
 		sol.res = make([]image.Point, 0, m)
 	}
 
-	if hn := maxx + 1; hn <= cap(sol.hs) {
-		sol.hs = sol.hs[:hn]
-		for i := range sol.hs {
-			sol.hs[i] = 0
+	res := sol.res
+	ch := 0
+	x := minx
+	for i := 0; i < len(hs); i++ {
+		if h := hs[i]; h < ch {
+			res = append(res, image.Pt(x-1, ch), image.Pt(x-1, h))
+			ch = h
+		} else if h > ch {
+			res = append(res, image.Pt(x, ch), image.Pt(x, h))
+			ch = h
 		}
-	} else {
-		sol.hs = make([]int, hn)
+		x++
 	}
+	if ch != 0 {
+		res = append(res, image.Pt(x-1, ch), image.Pt(x-1, 0))
+	}
+
+	return res, nil
 }
