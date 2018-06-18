@@ -847,8 +847,8 @@ func floodFill(gr *image.Gray, pt image.Point, where, with uint8) {
 				gr.Rect, pt, where, with,
 			))
 		}
-		var qpt image.Point
-		qpt, q = q[0], q[:copy(q, q[1:])]
+		qpt := q[0]
+		q = q[:copy(q, q[1:])]
 		if fill(gr, qpt, where, with) {
 			for _, d := range []image.Point{
 				image.Pt(0, 1), image.Pt(0, -1),
