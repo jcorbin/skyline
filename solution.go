@@ -29,7 +29,7 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 
 	minx := data[0].Sides[0]
 	maxx := data[0].Sides[1]
-	for i := 0; i < len(data); i++ {
+	for i := 1; i < len(data); i++ {
 		if x := data[i].Sides[0]; minx > x {
 			minx = x
 		}
