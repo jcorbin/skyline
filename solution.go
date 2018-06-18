@@ -29,6 +29,7 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 
 	minx := data[0].Sides[0]
 	maxx := data[0].Sides[1]
+	maxh := data[0].Height
 	for i := 1; i < len(data); i++ {
 		if x := data[i].Sides[0]; minx > x {
 			minx = x
@@ -36,14 +37,19 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		if x := data[i].Sides[1]; maxx < x {
 			maxx = x
 		}
+		if h := data[i].Height; maxh < h {
+			maxh = h
+		}
 	}
 
 	hs := make([]int, (maxx-minx)+1)
 
-	for i := 0; i < len(data); i++ {
-		for x1, x2 := data[i].Sides[0]-minx, data[i].Sides[1]-minx; x1 <= x2; x1++ {
-			if h := data[i].Height; hs[x1] < h {
-				hs[x1] = h
+	for h := 1; h <= maxh; h++ {
+		for i := 0; i < len(data); i++ {
+			if data[i].Height == h {
+				for x1, x2 := data[i].Sides[0]-minx, data[i].Sides[1]-minx; x1 <= x2; x1++ {
+					hs[x1] = h
+				}
 			}
 		}
 	}
