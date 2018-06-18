@@ -558,6 +558,7 @@ func (tr testCaseRun) doGenScaleBench(b *testing.B) {
 }
 
 func (tr testCaseRun) dumpPlots(logf func(string, ...interface{})) {
+	dumpRunes := map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
 	if tr.buildingPlot != nil && tr.skylinePlot != nil {
 		tr.bufc.WriteString("plots:\n")
 		dump(tr.bufa, tr.buildingPlot, dumpRunes)
@@ -788,8 +789,6 @@ func plotVLine(gr *image.Gray, x, y0, y1 int, val uint8) {
 	}
 }
 
-var dumpRunes = map[uint8]rune{0x00: ' ', 0x80: '.', 0xff: '#'}
-
 func plot2sky(
 	gr *image.Gray,
 	fillAt image.Point, fillWhere, fillWith uint8,
@@ -801,33 +800,15 @@ func plot2sky(
 	ngr := image.NewGray(gr.Rect)
 	copy(ngr.Pix, gr.Pix)
 
-	// debug dump space
-	bufa := bytes.NewBuffer(nil)
-	bufb := bytes.NewBuffer(nil)
-	bufc := bytes.NewBuffer(nil)
-
 	// fill sky
-	fmt.Fprintf(bufc, "flood fill sky @%v where %v with %v in:\n", fillAt, fillWhere, fillWith)
-	dump(bufa, ngr, dumpRunes)
 	floodFill(ngr, fillAt, fillWhere, fillWith)
-	dump(bufb, ngr, dumpRunes)
-	sideBySide(bufc, "before", "after", bufa, bufb)
-	log.Printf(bufc.String())
 
 	// erase plot
-	bufa.Reset()
-	bufb.Reset()
-	bufc.Reset()
-	fmt.Fprintf(bufc, "erase %v:\n", eraseWhere)
-	dump(bufa, ngr, dumpRunes)
 	for i := 0; i < len(ngr.Pix); i++ {
 		if ngr.Pix[i] == eraseWhere {
 			ngr.Pix[i] = 0x00
 		}
 	}
-	dump(bufb, ngr, dumpRunes)
-	sideBySide(bufc, "before", "after", bufa, bufb)
-	log.Printf(bufc.String())
 
 	return ngr
 }
