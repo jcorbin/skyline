@@ -3,6 +3,7 @@ package main
 import (
 	"image"
 	"log"
+	"sort"
 
 	"github.com/jcorbin/skyline/internal"
 )
@@ -40,35 +41,61 @@ func (sol *Solver) Solve(data []internal.Building) ([]image.Point, error) {
 		log.Printf("add %v", b)
 		x1, x2, h := b.Sides[0], b.Sides[1], b.Height
 
-		found := false // TODO for the case of full prefix when binary searching
+		ix1 := sort.Search(len(prior), func(i int) bool { return x1 >= prior[i].Sides[0] })
+		ix2 := sort.Search(len(prior), func(i int) bool { return x2 <= prior[i].Sides[1] })
 
-		for j, pb := range prior {
-			log.Printf("prior[%v] = %v", j, pb)
-			if pb.Sides[1] < x1 {
-				// TODO binary search for this, and copy() the prefix
-				next = append(next, pb)
-				continue
-			}
+		// new building just needs to be appended to end
+		if ix1 == len(prior) {
+			next = append(next, prior...)
+			next = append(next, b)
+			log.Printf("APP %v", prior)
+			continue
+		}
 
-			if pb.Sides[0] > x2 {
-				// TODO binary search for this, and copy() the suffix
-				next = append(next, pb)
-				continue
-			}
+		// prefix before new building
+		if ix1 > 0 {
+			next = append(next, prior[:ix1]...)
+		}
 
-			if h > pb.Height {
-				found = true
-				if pb.Sides[0] < x1 {
-					next = append(next, internal.Bldg(pb.Sides[0], x1, pb.Height))
-				}
-				next = append(next, internal.Bldg(x1, x2, h))
-				if pb.Sides[1] > x2 {
-					next = append(next, internal.Bldg(x2, pb.Sides[1], pb.Height))
-				}
+		// new building overlaps any buildings in prior[ix1:ix2]
+
+		// (chunks of) prior building(s) will make it into next if:
+		// - the first one can have a hanging left section
+		// - anything in the middle can poke out above
+		// - the last one can have a hanging right section
+
+		// - the first one can have a hanging left section
+		if ix1 < len(prior) {
+			if px := prior[ix1].Sides[0]; px < x1 {
+				next = append(next, internal.Bldg(px, x1, prior[ix1].Height))
+				ix1++ // XXX what about right poking out too?
 			}
 		}
-		if !found {
-			next = append(next, b)
+		// prior[ix1].Sides[0] >= x1
+
+		// - anything in the middle can poke out above
+		// for ix1 <= ix2 && ix1 < len(prior) { }
+		// FIXME
+
+		// - the last one can have a hanging right section
+		if ix2 < len(prior) {
+			if px := prior[ix2].Sides[1]; px > x2 {
+				// next = append(next, internal.Bldg(px, x1, prior[ix1].Height)) XXX
+				ix2++
+			}
+		}
+		// FIXME
+
+		// if ix2 == len(prior) { } XXX ?
+
+		// any remaining chunk (maybe the entire new building if no overlap)
+		if x1 < x2 {
+			next = append(next, internal.Bldg(x1, x2, h))
+		}
+
+		// suffix after new building
+		if ixsuf := ix2 + 1; ixsuf < len(prior) {
+			next = append(next, prior[ixsuf:]...)
 		}
 
 		prior, next = next, prior[:0]
